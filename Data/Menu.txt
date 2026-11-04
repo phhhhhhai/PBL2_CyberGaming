@@ -1,0 +1,4 @@
+1 Com_Ga_Vien 20000
+2 My_Hao_Hao 10000
+3 Sting_Do 14000
+4 Pepsi 10000
