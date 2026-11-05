@@ -112,8 +112,10 @@ void FileManager::loadOrders(const string& filename, Queue<Order*>& ordersQueue)
     ifstream file(filename);
     if (!file.is_open()) return;
     int id, mId, uId, idMon, sl, status, paid;
+    string tg;
     while (file >> id >> mId >> uId >> idMon >> sl >> status >> paid) {
-        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid));
+        getline(file >> ws, tg); 
+        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid, tg));
     }
     file.close();
 }
@@ -122,13 +124,9 @@ void FileManager::saveOrders(const string& filename, Queue<Order*>& ordersQueue)
     ofstream file(filename);
     for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
         Order* o = p->data;
-        file << o->getId() << " "
-             << o->getMachineId() << " "
-             << o->getUserId() << " "
-             << o->getIdMon() << " "
-             << o->getSoLuong() << " "
-             << o->getStatus() << " "
-             << o->getPaid() << "\n";
+        file << o->getId() << " " << o->getMachineId() << " " << o->getUserId() << " "
+             << o->getIdMon() << " " << o->getSoLuong() << " " << o->getStatus() << " " 
+             << o->getPaid() << " " << (o->getThoiGian().empty() ? "Unknown" : o->getThoiGian()) << "\n";
     }
     file.close();
 }

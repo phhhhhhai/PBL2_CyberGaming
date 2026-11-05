@@ -16,6 +16,8 @@
 #include "../DAL/FileManager.h"
 #include "RaylibUI.h"
 #include <string>
+#include <vector>
+#include <algorithm>
 
 class AppManager {
 private:
@@ -43,6 +45,7 @@ private:
     int selectedFoodId = -1;       
     int selectedOrderId = -1; 
     int selectedBookingId = -1;
+    string selectedBillTime = "";
 
     string popInp1 = ""; string popInp2 = ""; string popInp3 = ""; 
     string popInp4 = ""; string popInp5 = ""; string popInp6 = ""; string popInp7 = "";

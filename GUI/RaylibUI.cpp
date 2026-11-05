@@ -1,5 +1,6 @@
 #include "RaylibUI.h"
 #include "../BLL/ClientController.h"
+#include <vector>
 
 bool RaylibUI::isChangingMachine = false;
 int RaylibUI::sourceMachineId = -1;
@@ -165,6 +166,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, mayDangNgoi.c_str(), {tableX + 850, startY}, 22, 1, (mayDangNgoi == "-") ? DARKGRAY : DARKGREEN);
                 DrawTextEx(font, TextFormat("%.0f", soDu), {tableX + 1050, startY}, 22, 1, BLUE);
                 
+                DrawRectangle(tableX + 1280, startY - 5, 80, 30, DARKGREEN); DrawTextEx(font, "Bill", {tableX + 1300, startY}, 20, 1, WHITE); 
                 DrawRectangle(tableX + 1380, startY - 5, 80, 30, ORANGE); DrawTextEx(font, "Sửa", {tableX + 1405, startY}, 20, 1, WHITE);
                 DrawRectangle(tableX + 1480, startY - 5, 80, 30, RED);    DrawTextEx(font, "Xóa", {tableX + 1500, startY}, 20, 1, WHITE);
                 startY += 45;
@@ -336,6 +338,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         else if (currentTab == 1) {
             DrawTextEx(font, "DỊCH VỤ ĂN UỐNG TẠI BÀN", {100, contentY + 120}, 25, 1, DARKGRAY);
             DrawRectangle(100, 200, 400, 80, SKYBLUE); DrawTextEx(font, "MỞ MENU GỌI MÓN", {160, 225}, 28, 1, WHITE);
+            DrawRectangle(550, 200, 400, 80, ORANGE);  DrawTextEx(font, "MÓN ĐÃ GỌI", {660, 225}, 28, 1, WHITE);
             DrawTextEx(font, "* Yêu cầu gọi món sẽ được gửi trực tiếp đến quầy thu ngân.", {100, 300}, 20, 1, GRAY);
         } 
         else if (currentTab == 2) {
@@ -363,8 +366,105 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, "_", {765 + textW, y + 10}, 22, 1, BLACK);
             }
         };
+        if (popupState == 11 || popupState == 21) {
+            DrawRectangle(560, 180, 800, 600, RAYWHITE);
+            DrawRectangleLinesEx({560, 180, 800, 600}, 2, DARKBLUE);
+            DrawTextEx(font, popupState == 11 ? "DANH SÁCH LẦN GỌI MÓN (ADMIN)" : "LỊCH SỬ GỌI MÓN CỦA BẠN", {750, 220}, 28, 1, DARKBLUE);
+            
+            int targetUserId = -1;
+            if (popupState == 21) targetUserId = currentUser->getId();
+            else {
+                for (Node<User*>* u = dsTK.getHead(); u != nullptr; u = u->next) {
+                    if (u->data->getUsername() == p2) { targetUserId = u->data->getId(); break; }
+                }
+            }
 
-        if (popupState == 20) {
+            std::vector<string> bills;
+            for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                if (o->data->getUserId() == targetUserId) {
+                    string tg = o->data->getThoiGian();
+                    bool exists = false;
+                    for (string b : bills) if (b == tg) { exists = true; break; }
+                    if (!exists) bills.push_back(tg);
+                }
+            }
+
+            DrawRectangle(600, 280, 720, 40, DARKBLUE);
+            DrawTextEx(font, "STT", {620, 290}, 20, 1, WHITE);
+            DrawTextEx(font, "Thời gian gọi (Mã Bill)", {720, 290}, 20, 1, WHITE);
+            DrawTextEx(font, "Thao tác", {1150, 290}, 20, 1, WHITE);
+
+            float bY = 330;
+            for (size_t i = 0; i < bills.size(); i++) {
+                DrawRectangle(600, bY - 5, 720, 40, (i % 2 == 0) ? LIGHTGRAY : RAYWHITE);
+                DrawTextEx(font, TextFormat("%d", i + 1), {620, bY + 5}, 20, 1, BLACK);
+                DrawTextEx(font, bills[i].c_str(), {720, bY + 5}, 20, 1, BLACK);
+                DrawRectangle(1150, bY, 80, 30, ORANGE); DrawTextEx(font, "Chi tiết", {1155, bY + 5}, 18, 1, WHITE);
+                bY += 45;
+            }
+
+            DrawRectangle(900, 700, 150, 45, GRAY); DrawTextEx(font, "ĐÓNG", {940, 712}, 22, 1, WHITE);
+        }
+        else if (popupState == 12 || popupState == 22) {
+            DrawRectangle(510, 150, 900, 700, RAYWHITE);
+            DrawRectangleLinesEx({510, 150, 900, 700}, 2, DARKBLUE);
+            DrawTextEx(font, popupState == 12 ? "HÓA ĐƠN THANH TOÁN (F&B)" : "DANH SÁCH MÓN ĂN ĐÃ GỌI", {730, 180}, 28, 1, DARKBLUE);
+            
+            string sdtTitle = (popupState == 12) ? TextFormat("Tài khoản: %s", p2.c_str()) : TextFormat("Thời gian: %s", p1.c_str());
+            DrawTextEx(font, sdtTitle.c_str(), {550, 240}, 22, 1, BLACK);
+            DrawLineEx({550, 280}, {1350, 280}, 2, LIGHTGRAY);
+            
+            DrawTextEx(font, "STT", {550, 290}, 20, 1, DARKGRAY);
+            DrawTextEx(font, "Tên món", {630, 290}, 20, 1, DARKGRAY);
+            DrawTextEx(font, "Thành tiền", {900, 290}, 20, 1, DARKGRAY);
+            DrawTextEx(font, "Giao hàng", {1050, 290}, 20, 1, DARKGRAY);
+            DrawTextEx(font, "Thanh toán", {1200, 290}, 20, 1, DARKGRAY);
+
+            int targetUserId = -1;
+            if (popupState == 22) targetUserId = currentUser->getId();
+            else {
+                for (Node<User*>* u = dsTK.getHead(); u != nullptr; u = u->next) {
+                    if (u->data->getUsername() == p2) { targetUserId = u->data->getId(); break; }
+                }
+            }
+
+            float cY = 340; int i = 0; double tongCong = 0; bool allPaid = true;
+
+            for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                if (o->data->getUserId() == targetUserId && o->data->getThoiGian() == p1) { 
+                    string tenMon = "Unknown"; double gia = 0;
+                    for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                        if (m->data->getId() == o->data->getIdMon()) {
+                            tenMon = m->data->getTenMon() + TextFormat("_(x%d)", o->data->getSoLuong());
+                            gia = m->data->getDonGia() * o->data->getSoLuong();
+                            break;
+                        }
+                    }
+                    tongCong += gia;
+                    if (o->data->getPaid() == 0) allPaid = false;
+
+                    DrawTextEx(font, TextFormat("%d", i + 1), {550, cY}, 20, 1, BLACK);
+                    DrawTextEx(font, tenMon.c_str(), {630, cY}, 20, 1, BLACK);
+                    DrawTextEx(font, TextFormat("%.0f đ", gia), {900, cY}, 20, 1, BLUE);
+                    
+                    DrawTextEx(font, o->data->getStatus() == 0 ? "Đang chế biến..." : "Đã giao", {1050, cY}, 18, 1, o->data->getStatus() == 0 ? ORANGE : GREEN);
+                    DrawTextEx(font, o->data->getPaid() == 0 ? "Chưa thanh toán" : "Đã thanh toán", {1200, cY}, 18, 1, o->data->getPaid() == 0 ? RED : GREEN);
+                    cY += 45; i++;
+                }
+            }
+
+            DrawLineEx({550, 680}, {1350, 680}, 2, LIGHTGRAY);
+            DrawTextEx(font, "TỔNG CỘNG:", {550, 710}, 24, 1, BLACK);
+            DrawTextEx(font, TextFormat("%.0f VNĐ", tongCong), {900, 710}, 24, 1, RED);
+
+            if (popupState == 12) {
+                DrawRectangle(700, 780, 150, 50, GRAY); DrawTextEx(font, "ĐÓNG", {745, 795}, 22, 1, WHITE);
+                DrawRectangle(950, 780, 200, 50, allPaid ? GREEN : BLUE); DrawTextEx(font, allPaid ? "ĐÃ TT XONG" : "XÁC NHẬN TT", {980, 795}, 22, 1, WHITE);
+            } else {
+                DrawRectangle(870, 780, 150, 50, GRAY); DrawTextEx(font, "ĐÓNG", {915, 795}, 22, 1, WHITE);
+            }
+        }
+        else if (popupState == 20) { 
             Rectangle modalRec = {310, 180, 1300, 720};
             DrawRectangleRec(modalRec, RAYWHITE);
             DrawRectangleLinesEx(modalRec, 3, DARKBLUE);
@@ -421,6 +521,17 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             Rectangle btnDongMenu = {350, 830, 180, 50};
             DrawRectangleRec(btnDongMenu, GRAY);
             DrawTextEx(font, "ĐÓNG", {btnDongMenu.x + 60, btnDongMenu.y + 12}, 20, 1, WHITE);
+            Rectangle btnXacNhanDat = {1280, 830, 280, 50};
+            if (cartList.getSize() > 0) {
+                DrawRectangleRec(btnXacNhanDat, DARKBLUE); 
+            } else {
+                DrawRectangleRec(btnXacNhanDat, LIGHTGRAY); 
+            }
+            DrawTextEx(font, "XÁC NHẬN ĐẶT", {btnXacNhanDat.x + 50, btnXacNhanDat.y + 12}, 22, 1, WHITE);
+            
+            if (!pMsg.empty()) {
+                DrawTextEx(font, pMsg.c_str(), {750, 845}, 20, 1, GREEN); 
+            }
         }
         else if (popupState == 13) {
             DrawRectangle(700, 300, 520, 400, RAYWHITE);

@@ -301,10 +301,15 @@ void AppManager::run() {
                                 }
                                 float startY = 250;
                                 for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                                    if (CheckCollisionPointRec(mousePoint, {1540, startY - 5, 80, 30})) {
+                                    if (CheckCollisionPointRec(mousePoint, {1440, startY - 5, 80, 30})) {
+                                        selectedAccountUsername = p->data->getUsername();
+                                        popupState = 11; selectedBillTime = ""; 
+                                    } 
+                                    else if (CheckCollisionPointRec(mousePoint, {1540, startY - 5, 80, 30})) {
                                         selectedAccountUsername = p->data->getUsername();
                                         popupState = 5; popInp1 = p->data->getPassword(); popInp2 = "0"; popMsg = ""; activePopInp = 1;
-                                    } else if (CheckCollisionPointRec(mousePoint, {1640, startY - 5, 80, 30})) {
+                                    } 
+                                    else if (CheckCollisionPointRec(mousePoint, {1640, startY - 5, 80, 30})) {
                                         selectedAccountUsername = p->data->getUsername();
                                         popupState = 6; popMsg = "";
                                     }
@@ -392,8 +397,11 @@ void AppManager::run() {
 
                         if (currentTab == 1) {
                             Rectangle btnMenuClient = {100, 200, 400, 80}; 
+                            Rectangle btnMonDaGoi = {550, 200, 400, 80}; 
                             if (CheckCollisionPointRec(mousePoint, btnMenuClient)) {
                                 popupState = 20; popMsg = ""; soLuongCartItem = 0; 
+                            } else if (CheckCollisionPointRec(mousePoint, btnMonDaGoi)) {
+                                popupState = 21; selectedBillTime = ""; 
                             }
                         }
                         else if (currentTab == 2) { 
@@ -487,10 +495,11 @@ void AppManager::run() {
                             }
 
                             // Tạo Order, chuẩn hóa Khóa ngoại (Food ID)
+                            string currentTime = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
                             for (Node<CartItem*>* c = cartList.getHead(); c != nullptr; c = c->next) {
-                                ordersQueue.enqueue(new Order(nextOrderId++, mId, currentUser->getId(), c->data->getFoodId(), c->data->getSoLuong(), 0, 0));
+                                ordersQueue.enqueue(new Order(nextOrderId++, mId, currentUser->getId(), c->data->getFoodId(), c->data->getSoLuong(), 0, 0, currentTime));
                             }
-                            cartList.clear(); // Xóa sạch giỏ hàng khỏi RAM sau khi đặt
+                            cartList.clear(); 
                             popMsg = "Dat mon thanh cong! Yeu cau da gui toi Admin.";
                             FileManager::saveOrders("Data/Orders.txt", ordersQueue);
                         }
@@ -614,7 +623,53 @@ void AppManager::run() {
                     Rectangle btnHuyChung = {800, 650, 150, 50};
                     Rectangle btnXacNhanChung = {970, 650, 150, 50};
                     
-                    if (popupState == 13) {
+                    if (popupState == 11 || popupState == 21) {
+                        if (CheckCollisionPointRec(mousePoint, {900, 700, 150, 45})) { popupState = 0; } // HỦY
+                        else {
+                            int tId = (popupState == 21) ? currentUser->getId() : -1;
+                            if (tId == -1) {
+                                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
+                                }
+                            }
+                            std::vector<string> bills;
+                            for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                                if (o->data->getUserId() == tId) {
+                                    string tg = o->data->getThoiGian();
+                                    if (std::find(bills.begin(), bills.end(), tg) == bills.end()) bills.push_back(tg);
+                                }
+                            }
+                            float bY = 330;
+                            for (size_t i = 0; i < bills.size(); i++) {
+                                if (CheckCollisionPointRec(mousePoint, {1150, bY, 80, 30})) { 
+                                    selectedBillTime = bills[i];
+                                    popupState = (popupState == 11) ? 12 : 22; 
+                                    break;
+                                }
+                                bY += 45;
+                            }
+                        }
+                    }
+                    else if (popupState == 12) { 
+                        if (CheckCollisionPointRec(mousePoint, {700, 780, 150, 50})) popupState = 11; 
+                        else if (CheckCollisionPointRec(mousePoint, {950, 780, 200, 50})) { 
+                            int tId = -1;
+                            for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                                if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
+                            }
+                            for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                                if (o->data->getUserId() == tId && o->data->getThoiGian() == selectedBillTime) {
+                                    o->data->setPaid(1); 
+                                }
+                            }
+                            FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                            popupState = 11; 
+                        }
+                    }
+                    else if (popupState == 22) { 
+                        if (CheckCollisionPointRec(mousePoint, {870, 780, 150, 50})) popupState = 21; 
+                    }
+                    else if (popupState == 13) {
                         Rectangle btnHuy13 = {800, 600, 150, 45};
                         Rectangle btnXN13 = {970, 600, 150, 45};
                         
@@ -762,7 +817,10 @@ void AppManager::run() {
         } else if (appState == 1) {
             string clockStr = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
             RaylibUI::drawWorkspace(appFont, clockStr, currentTab, grid, dsTaiKhoan, dsMon, ordersQueue, cartList, dsDatLich,
-                currentUser, popupState, activePopInp, popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, 
+                currentUser, popupState, activePopInp, 
+                (popupState == 12 || popupState == 22) ? selectedBillTime : popInp1, 
+                (popupState == 11 || popupState == 12) ? selectedAccountUsername : popInp2, 
+                popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, 
                 assignScroll, selectedMachine, isHappyHourActive);
         }
         EndTextureMode();

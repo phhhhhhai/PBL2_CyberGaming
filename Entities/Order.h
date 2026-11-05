@@ -13,10 +13,11 @@ private:
     int soLuong;   
     int status; // 0: Chua giao, 1: Da giao
     int paid; // 0: Chua thanh toan, 1: Da thanh toan
+    string thoiGian;
 
 public:
-    Order(int i=0, int mId=0, int uId=0, int idM=0, int sl=0, int st=0, int pd=0)
-        : id(i), machineId(mId), userId(uId), idMon(idM), soLuong(sl), status(st), paid(pd) {}
+    Order(int i=0, int mId=0, int uId=0, int idM=0, int sl=0, int st=0, int pd=0, string tg="")
+        : id(i), machineId(mId), userId(uId), idMon(idM), soLuong(sl), status(st), paid(pd), thoiGian(tg) {}
 
     int getId() const { return id; }
     int getMachineId() const { return machineId; }
@@ -25,10 +26,12 @@ public:
     int getSoLuong() const { return soLuong; }
     int getStatus() const { return status; }
     int getPaid() const { return paid; }
+    string getThoiGian() const { return thoiGian; }
 
     void setStatus(int st) { status = st; }
     void setPaid(int pd) { paid = pd; }
     void setSoLuong(int sl) { soLuong = sl; }
+    void setThoiGian(string tg) { thoiGian = tg; }
 };
 
 #endif
