@@ -754,6 +754,7 @@ void AppManager::run() {
                             AdminController::updatePassword(dsTaiKhoan, selectedAccountUsername, popInp1);
                             double napThem = 0; try { napThem = std::stod(popInp2); } catch(...) { napThem = 0; }
                             if (napThem > 0) AdminController::napTien(dsTaiKhoan, selectedAccountUsername, napThem);
+                            FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
                             popupState = 0; selectedAccountUsername = "";
                         }
                         else if (popupState == 6) { 
