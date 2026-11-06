@@ -32,6 +32,10 @@ public:
     void setPaid(int pd) { paid = pd; }
     void setSoLuong(int sl) { soLuong = sl; }
     void setThoiGian(string tg) { thoiGian = tg; }
+
+    void setMachineId(int mId) {
+    machineId = mId;
+    }
 };
 
 #endif

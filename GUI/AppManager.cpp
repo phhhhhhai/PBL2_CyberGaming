@@ -213,8 +213,18 @@ void AppManager::run() {
                                 RaylibUI::moveNotificationMsg = "Tai khoan khong du tien cho loai may nay!";
                                 RaylibUI::moveNotificationTimer = 2.0f;
                             } else {
+                                int oldMachineId = grid[srcR][srcC]->getId();
+                                int newMachineId = grid[destR][destC]->getId();
+
                                 grid[destR][destC]->assignClient(cUser);
                                 grid[srcR][srcC]->freeMachine();
+
+                                for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                                    if (o->data->getUserId() == cUser->getId() && o->data->getMachineId() == oldMachineId) {
+                                        o->data->setMachineId(newMachineId);
+                                    }
+                                }
+                                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                             }
                         }
