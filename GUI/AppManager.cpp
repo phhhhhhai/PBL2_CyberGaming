@@ -213,26 +213,16 @@ void AppManager::run() {
                                 RaylibUI::moveNotificationMsg = "Tai khoan khong du tien cho loai may nay!";
                                 RaylibUI::moveNotificationTimer = 2.0f;
                             } else {
-                                int oldMachineId = grid[srcR][srcC]->getId();
-                                int newMachineId = grid[destR][destC]->getId();
-
+                                // Thực hiện đổi máy trên sơ đồ phòng máy
                                 grid[destR][destC]->assignClient(cUser);
                                 grid[srcR][srcC]->freeMachine();
 
-                                for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
-                                    if (o->data->getUserId() == cUser->getId() && o->data->getMachineId() == oldMachineId) {
-                                        o->data->setMachineId(newMachineId);
-                                    }
-                                }
-                                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                                // LƯU Ý: Đã xóa bỏ hoàn toàn vòng lặp cập nhật lại ordersQueue ở đây 
+                                // để các đơn hàng cũ giữ nguyên vị trí máy lúc gọi!
+                                
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                             }
                         }
-                        RaylibUI::showConfirmMoveModal = false;
-                        RaylibUI::sourceMachineId = -1;
-                        RaylibUI::targetMachineId = -1;
-                    }
-                    else if (CheckCollisionPointRec(mousePoint, btnNo)) {
                         RaylibUI::showConfirmMoveModal = false;
                         RaylibUI::sourceMachineId = -1;
                         RaylibUI::targetMachineId = -1;
