@@ -213,8 +213,18 @@ void AppManager::run() {
                                 RaylibUI::moveNotificationMsg = "Tai khoan khong du tien cho loai may nay!";
                                 RaylibUI::moveNotificationTimer = 2.0f;
                             } else {
+                                int oldMachineId = grid[srcR][srcC]->getId();
+                                int newMachineId = grid[destR][destC]->getId();
+
                                 grid[destR][destC]->assignClient(cUser);
                                 grid[srcR][srcC]->freeMachine();
+
+                                for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+                                    if (o->data->getUserId() == cUser->getId() && o->data->getMachineId() == oldMachineId) {
+                                        o->data->setMachineId(newMachineId);
+                                    }
+                                }
+                                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                             }
                         }
@@ -354,7 +364,24 @@ void AppManager::run() {
                                         popupState = 13; popInp1 = std::to_string(p->data->getSoLuong()); popMsg = ""; activePopInp = 1;
                                     }
                                     else if (CheckCollisionPointRec(mousePoint, btnDel)) {
-                                        // TODO: Cần viết hàm remove trong Queue hoặc tạo Queue tạm thời để xóa phần tử ở giữa
+                                        int targetOrderId = p->data->getId();
+                                        Queue<Order*> tempQueue;
+                                        
+                                        while (!ordersQueue.isEmpty()) {
+                                            Order* ord = ordersQueue.dequeue();
+                                            if (ord->getId() != targetOrderId) {
+                                                tempQueue.enqueue(ord);
+                                            } else {
+                                                delete ord; 
+                                            }
+                                        }
+                                        
+                                        while (!tempQueue.isEmpty()) {
+                                            ordersQueue.enqueue(tempQueue.dequeue());
+                                        }
+                                        
+                                        FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                                        break;
                                     }
                                     startY += 45;
                                 }
