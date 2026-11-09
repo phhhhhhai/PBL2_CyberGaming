@@ -61,6 +61,8 @@ private:
 
     void addVirtualMinutes(int mins); 
 
+    void updateBookingLogics();
+
 public:
     AppManager();
     void run();
