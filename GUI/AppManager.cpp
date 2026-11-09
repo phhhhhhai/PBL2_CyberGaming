@@ -344,7 +344,22 @@ void AppManager::run() {
                                         popInp6 = std::to_string(b->getThoiLuong()); popInp7 = ""; 
                                     }
                                     if (CheckCollisionPointRec(mousePoint, {160 + 1385, startY - 5, 75, 30})) {
-                                        delete b; dsDatLich.remove(node); // Thu hồi RAM
+                                        for (int r = 0; r < ROWS; r++) {
+                                            for (int c = 0; c < COLS; c++) {
+                                                if (grid[r][c]->getId() == b->getIdMay()) {
+                                                    if (b->getTrangThai() == 0 && grid[r][c]->getTrangThai() == 4) {
+                                                        grid[r][c]->setTrangThai(0); 
+                                                    }
+                                                    else if (b->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr && 
+                                                            grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                                                        grid[r][c]->freeMachine(); 
+                                                        grid[r][c]->setTrangThai(2); 
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        FileManager::saveGrid("Data/MayTram.txt", grid);
+                                        delete b; dsDatLich.remove(node);
                                         FileManager::saveBookings("Data/Booking.txt", dsDatLich);
                                         break; 
                                     }
@@ -731,6 +746,23 @@ void AppManager::run() {
                             popupState = 0; selectedAccountUsername = "";
                         }
                         else if (popupState == 6) { 
+                            Node<DatLich*>* bNode = dsDatLich.getHead();
+                            while (bNode != nullptr) {
+                                Node<DatLich*>* nextNode = bNode->next;
+                                if (bNode->data->getSdtKhach() == selectedAccountUsername) {
+                                    if (bNode->data->getTrangThai() == 0) {
+                                        for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
+                                            if (grid[r][c]->getId() == bNode->data->getIdMay() && grid[r][c]->getTrangThai() == 4) {
+                                                grid[r][c]->setTrangThai(0);
+                                            }
+                                        }
+                                    }
+                                    delete bNode->data; dsDatLich.remove(bNode);
+                                }
+                                bNode = nextNode;
+                            }
+                            FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+                            FileManager::saveGrid("Data/MayTram.txt", grid);
                             AdminController::deleteTaiKhoan(dsTaiKhoan, selectedAccountUsername, grid);
                             popupState = 0; selectedAccountUsername = "";
                         }
