@@ -1,4 +1,42 @@
 #include "AdminController.h"
+#include "../DAL/FileManager.h"
+#include <cstdio> 
+
+AdminController::AdminController(DoublyLinkedList<User*>& users, DoublyLinkedList<DatLich*>& bookings, DoublyLinkedList<MonAn*>& foods, MayTram* g[ROWS][COLS]) 
+    : dsTaiKhoan(users), dsDatLich(bookings), dsMon(foods) {
+    this->grid = g;
+}
+
+User* AdminController::findUserByPhone(const string& phone) {
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getUsername() == phone) return p->data;
+    }
+    return nullptr;
+}
+
+Client* AdminController::findClientByPhone(const string& phone) {
+    return dynamic_cast<Client*>(findUserByPhone(phone)); 
+}
+
+MayTram* AdminController::findMachineById(int id) {
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            if (grid[r][c]->getId() == id) return grid[r][c];
+        }
+    }
+    return nullptr;
+}
+
+MayTram* AdminController::findMachineByUsername(const string& username) {
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            if (grid[r][c]->getCurrentClient() != nullptr && grid[r][c]->getCurrentClient()->getUsername() == username) {
+                return grid[r][c];
+            }
+        }
+    }
+    return nullptr;
+}
 
 bool AdminController::isValidPhoneNumber(string phone) {
     if (phone.length() != 10 || phone[0] != '0' || phone[1] == '0') return false;
@@ -6,18 +44,15 @@ bool AdminController::isValidPhoneNumber(string phone) {
     return true;
 }
 
-bool AdminController::isDuplicateUser(string phone, DoublyLinkedList<User*>& dsTaiKhoan) {
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == phone) return true;
-    }
-    return false;
+bool AdminController::isDuplicateUser(string phone) {
+    return findUserByPhone(phone) != nullptr;
 }
 
-int AdminController::addTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string phone, string pass, double initialBalance) {
+int AdminController::addTaiKhoan(string phone, string pass, double initialBalance) {
     if (!isValidPhoneNumber(phone)) return -1; 
     if (initialBalance < 10000) return -3; 
     if (initialBalance > 10000000) return -4; 
-    if (isDuplicateUser(phone, dsTaiKhoan)) return 0; 
+    if (isDuplicateUser(phone)) return 0; 
 
     int newId = 1;
     if (dsTaiKhoan.getSize() > 0) newId = dsTaiKhoan.getTail()->data->getId() + 1;
@@ -25,14 +60,36 @@ int AdminController::addTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string pho
     return 1;
 }
 
-bool AdminController::napTien(DoublyLinkedList<User*>& dsTaiKhoan, string username, double amount) {
+bool AdminController::napTien(string username, double amount) {
     if (amount <= 0 || amount > 5000000) return false; 
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            Client* c = dynamic_cast<Client*>(p->data);
-            if (c) {
-                if (c->getSoDu() + amount > 10000000) return false; 
-                c->napTien(amount);
+    Client* c = findClientByPhone(username);
+    if (c) {
+        if (c->getSoDu() + amount > 10000000) return false; 
+        c->napTien(amount);
+        return true;
+    }
+    return false;
+}
+
+bool AdminController::updatePassword(string username, string newPass) {
+    User* u = findUserByPhone(username);
+    if (u) {
+        u->setPassword(newPass);
+        return true;
+    }
+    return false;
+}
+
+bool AdminController::deleteTaiKhoan(string username) {
+    User* u = findUserByPhone(username);
+    if (u) {
+        MayTram* m = findMachineByUsername(username);
+        if (m) m->freeMachine();
+
+        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+            if (p->data->getUsername() == username) {
+                delete p->data;
+                dsTaiKhoan.remove(p);
                 return true;
             }
         }
@@ -40,90 +97,42 @@ bool AdminController::napTien(DoublyLinkedList<User*>& dsTaiKhoan, string userna
     return false;
 }
 
-bool AdminController::updatePassword(DoublyLinkedList<User*>& dsTaiKhoan, string username, string newPass) {
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            p->data->setPassword(newPass); // Đóng gói setter
-            return true;
-        }
-    }
-    return false;
+int AdminController::assignSeat(string username, int idMay) {
+    Client* targetClient = findClientByPhone(username);
+    if (!targetClient) return -4; 
+
+    MayTram* m = findMachineById(idMay);
+    if (!m) return -1; 
+    if (m->getTrangThai() != 0) return -2; 
+
+    double gia1Gio = (m->getLoaiMay() == 0) ? 10000 : ((m->getLoaiMay() == 1) ? 14000 : 20000);
+    if (targetClient->getSoDu() < gia1Gio) return -3; 
+
+    m->assignClient(targetClient);
+    return 1; 
 }
 
-bool AdminController::deleteTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string username, MayTram* grid[ROWS][COLS]) {
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            // 1. Giải phóng máy nếu đang ngồi
-            for (int r = 0; r < ROWS; r++) {
-                for (int c = 0; c < COLS; c++) {
-                    if (grid[r][c]->getCurrentClient() != nullptr && 
-                        grid[r][c]->getCurrentClient()->getUsername() == username) {
-                        grid[r][c]->freeMachine(); // Đóng gói
-                    }
-                }
-            }
-            // 2. Xóa object và gỡ node khỏi DSLK
-            delete p->data;
-            dsTaiKhoan.remove(p);
-            return true;
-        }
-    }
-    return false;
-}
-
-int AdminController::assignSeat(string username, int idMay, DoublyLinkedList<User*>& dsTaiKhoan, MayTram* grid[ROWS][COLS]) {
-    Client* targetClient = nullptr;
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            targetClient = dynamic_cast<Client*>(p->data);
-            break;
-        }
-    }
-    if (!targetClient) return -4; // Không tìm thấy
-
-    // Check tài chính
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            if (grid[i][j]->getId() == idMay) {
-                if (grid[i][j]->getTrangThai() != 0) return -2; // Máy không trống
-
-                double gia1Gio = (grid[i][j]->getLoaiMay() == 0) ? 10000 : ((grid[i][j]->getLoaiMay() == 1) ? 14000 : 20000);
-                if (targetClient->getSoDu() < gia1Gio) return -3; 
-
-                // Gán máy (Sử dụng con trỏ object thay vì string)
-                grid[i][j]->assignClient(targetClient);
-                return 1; 
-            }
-        }
-    }
-    return -1; 
-}
-
-int AdminController::validateAndAddMonAn(DoublyLinkedList<MonAn*>& dsMon, string tenMon, string giaStr) {
+int AdminController::validateAndAddMonAn(string tenMon, string giaStr) {
     if (tenMon.empty() || giaStr.empty()) return -1; 
     if (giaStr.length() < 4 || giaStr.substr(giaStr.length() - 3) != "000") return -2; 
     try {
         double gia = std::stod(giaStr); 
         if (gia <= 0) return -3; 
-        return addMonAn(dsMon, tenMon, gia); 
+        return addMonAn(tenMon, gia); 
     } catch (...) {
         return 0; 
     }
 }
 
-int AdminController::addMonAn(DoublyLinkedList<MonAn*>& dsMon, string tenMon, double donGia) {
+int AdminController::addMonAn(string tenMon, double donGia) {
     if (donGia <= 0) return 0;
     int newId = 1;
-    if (dsMon.getSize() > 0) {
-        newId = dsMon.getTail()->data->getId() + 1;
-    }
+    if (dsMon.getSize() > 0) newId = dsMon.getTail()->data->getId() + 1;
     dsMon.addTail(new MonAn(newId, tenMon, donGia));
     return 1;
 }
 
-
-
-bool AdminController::updateMonAn(DoublyLinkedList<MonAn*>& dsMon, int idSua, string tenMonMoi, double donGiaMoi) {
+bool AdminController::updateMonAn(int idSua, string tenMonMoi, double donGiaMoi) {
     if (donGiaMoi <= 0) return false;
     for (Node<MonAn*>* p = dsMon.getHead(); p != nullptr; p = p->next) {
         if (p->data->getId() == idSua) {
@@ -135,7 +144,7 @@ bool AdminController::updateMonAn(DoublyLinkedList<MonAn*>& dsMon, int idSua, st
     return false;
 }
 
-bool AdminController::deleteMonAn(DoublyLinkedList<MonAn*>& dsMon, int idXoa) {
+bool AdminController::deleteMonAn(int idXoa) {
     for (Node<MonAn*>* p = dsMon.getHead(); p != nullptr; p = p->next) {
         if (p->data->getId() == idXoa) {
             delete p->data;
@@ -146,17 +155,16 @@ bool AdminController::deleteMonAn(DoublyLinkedList<MonAn*>& dsMon, int idXoa) {
     return false;
 }
 
-int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId, DoublyLinkedList<DatLich*>& dsDatLich, DoublyLinkedList<User*>& dsTaiKhoan) {
+int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId) {
     if (phone.empty() || idMayStr.empty() || date.empty() || hStr.empty() || mStr.empty() || durationStr.empty() || pass.empty()) return -1;
     if (!isValidPhoneNumber(phone)) return -2;
     if (date.length() != 10 || date[2] != '/' || date[5] != '/') return -3;
+    
     try {
         int d = stoi(date.substr(0, 2)), m = stoi(date.substr(3, 2)), y = stoi(date.substr(6, 4));
         int idMay = stoi(idMayStr), gio = stoi(hStr), phut = stoi(mStr), thoiLuong = stoi(durationStr);
-        User* targetUser = nullptr;
-        for(Node<User*>* uNode = dsTaiKhoan.getHead(); uNode != nullptr; uNode = uNode->next) {
-            if (uNode->data->getUsername() == phone) { targetUser = uNode->data; break; }
-        }
+        
+        User* targetUser = findUserByPhone(phone);
         if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
         Client* cUser = dynamic_cast<Client*>(targetUser);
@@ -166,12 +174,14 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
             cUser = new Client(newClientId, phone, pass, 0, 1);
             dsTaiKhoan.addTail(cUser);
         }
+
         DatLich* existingBooking = nullptr;
         if (selectedBookingId != -1) {
             for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
                 if (node->data->getId() == selectedBookingId) { existingBooking = node->data; break; }
             }
         }
+
         if (existingBooking != nullptr) {
             if (existingBooking->getTrangThai() == 2) return -11; 
             if (existingBooking->getTrangThai() == 1) {
@@ -187,6 +197,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                 return 1; 
             }
         }
+
         if (m < 1 || m > 12) return -5;
         int maxDays = 31;
         if (m == 4 || m == 6 || m == 9 || m == 11) maxDays = 30;
@@ -196,7 +207,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (gio < 7 || gio >= 22) return -9; 
         if (phut < 0 || phut > 59 || thoiLuong <= 0) return -7;
         if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
-        
         if (idMay < 31 || idMay > 40) return -4; 
 
         int bookTotalDays = y * 365 + d;
@@ -218,4 +228,142 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         }
         return 1; 
     } catch (...) { return 0; }
+}
+
+std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
+    std::vector<string> kickedUsers;
+    char dateBuf[20];
+    snprintf(dateBuf, sizeof(dateBuf), "%02d/%02d/%d", vDay, vMonth, vYear); 
+    string todayStr(dateBuf);
+    
+    int currMinsTotal = vHour * 60 + vMinute;
+    
+    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+        DatLich* b = node->data;
+        if (b->getNgayDat() == todayStr) {
+            int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
+            MayTram* m = findMachineById(b->getIdMay()); 
+            if (!m) continue;            
+            // 1. TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
+            if (currMinsTotal < bookMins) {
+                b->setTrangThai(0); 
+                if (currMinsTotal >= bookMins - 15) {
+                    if (m->getTrangThai() == 1 && (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        m->setTrangThai(4); 
+                        m->freeMachine(); 
+                    } else if (m->getTrangThai() == 0 || m->getTrangThai() == 2) {
+                        m->setTrangThai(4); 
+                    }
+                }
+            }
+            // 2. TRONG GIỜ ĐẶT
+            else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
+                b->setTrangThai(1); 
+                Client* cUser = findClientByPhone(b->getSdtKhach());
+
+                if (cUser != nullptr) {
+                    if (m->getTrangThai() == 1 && (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        m->freeMachine();
+                        m->setTrangThai(2); 
+                    }
+                    if (m->getTrangThai() == 0 || m->getTrangThai() == 4 || m->getTrangThai() == 2) {
+                        MayTram* oldM = findMachineByUsername(cUser->getUsername()); // Chống phân thân
+                        if (oldM && oldM->getId() != m->getId()) {
+                            oldM->freeMachine();
+                            oldM->setTrangThai(2);
+                        }
+                        m->assignClient(cUser);
+                        m->setTrangThai(1); 
+                    }
+                }
+            }
+            // 3. HẾT GIỜ
+            else {
+                if (b->getTrangThai() == 1) { 
+                    if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                        kickedUsers.push_back(b->getSdtKhach());
+                        m->freeMachine(); 
+                        m->setTrangThai(2); 
+                    }
+                }
+                b->setTrangThai(2); 
+            }
+        }
+    }
+    return kickedUsers;
+}
+
+std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive) {
+    std::vector<string> kickedUsers;
+    int skipSeconds = mins * 60;    
+    // Xử lý trừ tiền
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
+                string u = grid[r][c]->getCurrentClient()->getUsername();
+                double rRate = ClientController::getTickRate(grid[r][c]->getLoaiMay(), isHappyHourActive);
+                double amount = rRate * skipSeconds;
+                if (mins > 0) {
+                    Client* cUser = findClientByPhone(u);
+                    bool ok = (cUser != nullptr) ? cUser->truTien(amount) : false;
+                    if (!ok) {
+                        kickedUsers.push_back(u); 
+                        grid[r][c]->freeMachine();
+                        grid[r][c]->setTrangThai(2); 
+                    }
+                }
+            }
+        }
+    }
+    // Tính toán thời gian
+    if (mins > 0) {
+        vMinute += mins;
+        while (vMinute >= 60) { vMinute -= 60; vHour++; }
+        while (vHour >= 24) { 
+            vHour -= 24; vDay++; 
+            int maxDays = 31;
+            if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
+            else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
+            if(vDay > maxDays){ vDay = 1; vMonth++; } 
+            if(vMonth > 12){ vMonth = 1; vYear++; } 
+        }
+    } else {
+        vMinute += mins;
+        while (vMinute < 0) { vMinute += 60; vHour--; }
+        while (vHour < 0) { 
+            vHour += 24; vDay--; 
+            if(vDay < 1){ 
+                vMonth--; 
+                if(vMonth < 1){ vMonth = 12; vYear--; } 
+                int maxDays = 31;
+                if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
+                else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
+                vDay = maxDays;
+            } 
+        }
+    }
+    // Xử lý đá khách khi quá 22:00
+    if (vHour < 7 || vHour >= 22) {
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                if (grid[r][c]->getCurrentClient() != nullptr) {
+                    kickedUsers.push_back(grid[r][c]->getCurrentClient()->getUsername()); 
+                    grid[r][c]->freeMachine();
+                    grid[r][c]->setTrangThai(2);
+                }
+            }
+        }
+    }
+    // Đồng bộ Booking Logic
+    std::vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
+    for (const string& u : bookingKicked) {
+        if (std::find(kickedUsers.begin(), kickedUsers.end(), u) == kickedUsers.end()) {
+            kickedUsers.push_back(u);
+        }
+    }
+    if (mins > 0 || (vHour < 7 || vHour >= 22)) {
+        FileManager::saveGrid("Data/MayTram.txt", grid);
+        FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+    }
+    return kickedUsers;
 }

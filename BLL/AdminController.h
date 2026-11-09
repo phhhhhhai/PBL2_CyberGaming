@@ -9,28 +9,43 @@
 #include "../Entities/DatLich.h"
 #include "DoublyLinkedList.h"
 #include <string>
+#include <vector>
 
 using namespace std;
 
 class AdminController {
+private:
+    DoublyLinkedList<User*>& dsTaiKhoan;
+    DoublyLinkedList<DatLich*>& dsDatLich;
+    DoublyLinkedList<MonAn*>& dsMon;
+    MayTram* (*grid)[COLS]; 
+    User* findUserByPhone(const string& phone);
+    Client* findClientByPhone(const string& phone);
+    MayTram* findMachineById(int id);
+    MayTram* findMachineByUsername(const string& username);
 public:
-    static bool isValidPhoneNumber(string phone);
-    static bool isDuplicateUser(string phone, DoublyLinkedList<User*>& dsTaiKhoan);
-    
-    static int addTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string phone, string pass, double initialBalance);
-    static bool napTien(DoublyLinkedList<User*>& dsTaiKhoan, string username, double amount);
-    static bool updatePassword(DoublyLinkedList<User*>& dsTaiKhoan, string username, string newPass);
-    static bool deleteTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string username, MayTram* grid[ROWS][COLS]);
-    
-    static int assignSeat(string username, int idMay, DoublyLinkedList<User*>& dsTaiKhoan, MayTram* grid[ROWS][COLS]);
-    
-    static int validateAndAddMonAn(DoublyLinkedList<MonAn*>& dsMon, string tenMon, string giaStr);
-    static int addMonAn(DoublyLinkedList<MonAn*>& dsMon, string tenMon, double donGia);
-    static bool updateMonAn(DoublyLinkedList<MonAn*>& dsMon, int idSua, string tenMonMoi, double donGiaMoi);
-    static bool deleteMonAn(DoublyLinkedList<MonAn*>& dsMon, int idXoa);
+    AdminController(DoublyLinkedList<User*>& users, DoublyLinkedList<DatLich*>& bookings, DoublyLinkedList<MonAn*>& foods, MayTram* g[ROWS][COLS]);
 
-    static int validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, 
-        int currentTotalDays, int selectedBookingId, DoublyLinkedList<DatLich*>& dsDatLich, DoublyLinkedList<User*>& dsTaiKhoan);
+    bool isValidPhoneNumber(string phone);
+    bool isDuplicateUser(string phone);
+    
+    int addTaiKhoan(string phone, string pass, double initialBalance);
+    bool napTien(string username, double amount);
+    bool updatePassword(string username, string newPass);
+    bool deleteTaiKhoan(string username);
+    
+    int assignSeat(string username, int idMay);
+    
+    int validateAndAddMonAn(string tenMon, string giaStr);
+    int addMonAn(string tenMon, double donGia);
+    bool updateMonAn(int idSua, string tenMonMoi, double donGiaMoi);
+    bool deleteMonAn(int idXoa);
+
+    int validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, 
+        int currentTotalDays, int selectedBookingId);
+
+    std::vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
+    std::vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
 };
 
 #endif

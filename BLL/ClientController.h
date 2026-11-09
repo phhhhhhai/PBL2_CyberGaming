@@ -5,20 +5,27 @@
 #include "../Entities/Client.h"
 #include "../Entities/MayTram.h"
 #include "DoublyLinkedList.h"
-#include "Pricing.h" // Kế thừa đa hình từ file Pricing.h cũ
+#include "Pricing.h"
 #include <string>
 
 using namespace std;
 
 class ClientController {
+private:
+    DoublyLinkedList<User*>& dsTaiKhoan;
+    MayTram* (*grid)[COLS];
+    Client* findClientByPhone(const string& username);
+    MayTram* findMachineByUsername(const string& username);
+
 public:
-    static int getAssignedMachine(string username, MayTram* grid[ROWS][COLS], int& loaiMay);
-    static bool changePassword(DoublyLinkedList<User*>& dsTaiKhoan, string username, string newPass);
-    
+    ClientController(DoublyLinkedList<User*>& users, MayTram* g[ROWS][COLS]);
+
     static double getTickRate(int loaiMay, bool isHappyHour);
     
-    static bool processTick(DoublyLinkedList<User*>& dsTaiKhoan, string username, double deductionAmount);
-    static void returnMachine(string username, int idMay, MayTram* grid[ROWS][COLS]);
+    int getAssignedMachine(string username, int& loaiMay);
+    bool changePassword(string username, string newPass);
+    bool processTick(string username, double deductionAmount);
+    void returnMachine(string username); 
 };
 
 #endif

@@ -1,27 +1,27 @@
 #include "ClientController.h"
 
-int ClientController::getAssignedMachine(string username, MayTram* grid[ROWS][COLS], int& loaiMay) {
+ClientController::ClientController(DoublyLinkedList<User*>& users, MayTram* g[ROWS][COLS]) 
+    : dsTaiKhoan(users) {
+    this->grid = g;
+}
+
+Client* ClientController::findClientByPhone(const string& username) {
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getUsername() == username) return dynamic_cast<Client*>(p->data);
+    }
+    return nullptr;
+}
+
+MayTram* ClientController::findMachineByUsername(const string& username) {
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             if (grid[i][j]->getCurrentClient() != nullptr && 
                 grid[i][j]->getCurrentClient()->getUsername() == username) {
-                loaiMay = grid[i][j]->getLoaiMay();
-                return grid[i][j]->getId();
+                return grid[i][j];
             }
         }
     }
-    return -1; // Chưa được xếp máy
-}
-
-bool ClientController::changePassword(DoublyLinkedList<User*>& dsTaiKhoan, string username, string newPass) {
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            if (newPass == p->data->getPassword()) return false; // Trùng MK cũ
-            p->data->setPassword(newPass);
-            return true;
-        }
-    }
-    return false;
+    return nullptr;
 }
 
 double ClientController::getTickRate(int loaiMay, bool isHappyHour) {
@@ -38,28 +38,32 @@ double ClientController::getTickRate(int loaiMay, bool isHappyHour) {
     return rate;
 }
 
-bool ClientController::processTick(DoublyLinkedList<User*>& dsTaiKhoan, string username, double deductionAmount) {
-    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-        if (p->data->getUsername() == username) {
-            Client* c = dynamic_cast<Client*>(p->data);
-            if (c) {
-                // Gọi hàm truTien nội tại của class Client
-                return c->truTien(deductionAmount); 
-            }
-        }
+int ClientController::getAssignedMachine(string username, int& loaiMay) {
+    MayTram* m = findMachineByUsername(username);
+    if (m) {
+        loaiMay = m->getLoaiMay();
+        return m->getId();
+    }
+    return -1;
+}
+
+bool ClientController::changePassword(string username, string newPass) {
+    Client* c = findClientByPhone(username);
+    if (c) {
+        if (newPass == c->getPassword()) return false; 
+        c->setPassword(newPass);
+        return true;
     }
     return false;
 }
 
-void ClientController::returnMachine(string username, int idMay, MayTram* grid[ROWS][COLS]) {
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            if (grid[i][j]->getId() == idMay && 
-                grid[i][j]->getCurrentClient() != nullptr && 
-                grid[i][j]->getCurrentClient()->getUsername() == username) {
-                grid[i][j]->freeMachine(); // Trả máy, ngắt liên kết con trỏ
-                return;
-            }
-        }
-    }
+bool ClientController::processTick(string username, double deductionAmount) {
+    Client* c = findClientByPhone(username);
+    if (c) return c->truTien(deductionAmount);
+    return false;
+}
+
+void ClientController::returnMachine(string username) {
+    MayTram* m = findMachineByUsername(username);
+    if (m) m->freeMachine();
 }

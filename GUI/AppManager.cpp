@@ -24,6 +24,14 @@ AppManager::AppManager() {
         fTime >> vYear >> vMonth >> vDay >> vHour >> vMinute >> vSecond;
         fTime.close();
     }
+
+    adminCtrl = new AdminController(dsTaiKhoan, dsDatLich, dsMon, grid);
+    clientCtrl = new ClientController(dsTaiKhoan, grid);
+}
+
+AppManager::~AppManager() {
+    delete adminCtrl;
+    delete clientCtrl;
 }
 
 void AppManager::run() {
@@ -55,29 +63,15 @@ void AppManager::run() {
             vSecond++;
             if (vSecond >= 60) { 
                 vSecond = 0;
-                addVirtualMinutes(1);
-            }
-
-            // Logic trừ tiền thời gian thực
-            for (int r = 0; r < ROWS; r++) {
-                for (int c = 0; c < COLS; c++) {
-                    if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
-                        string u = grid[r][c]->getCurrentClient()->getUsername();
-                        double rRate = ClientController::getTickRate(grid[r][c]->getLoaiMay(), isHappyHourActive);
-                        
-                        bool ok = ClientController::processTick(dsTaiKhoan, u, rRate);
-                        if (!ok) {
-                            grid[r][c]->freeMachine();
-                            grid[r][c]->setTrangThai(2); // Dọn dẹp
-                            FileManager::saveGrid("Data/MayTram.txt", grid);
-                            if (currentUser != nullptr && currentUser->getUsername() == u) {
-                                appState = 0; currentUser = nullptr; loginMessage = "Tai khoan het tien!";
-                            }
-                        }
-                    }
+                // BLL lấy danh sách những user bị kick
+                std::vector<string> kickedUsers = adminCtrl->addVirtualMinutes(1, vDay, vMonth, vYear, vHour, vMinute, isHappyHourActive);
+                // GUI xử lý giao diện nếu người dùng hiện tại nằm trong danh sách bị kick
+                if (currentUser != nullptr && std::find(kickedUsers.begin(), kickedUsers.end(), currentUser->getUsername()) != kickedUsers.end()) {
+                    appState = 0; 
+                    currentUser = nullptr; 
+                    loginMessage = "Tài khoản bị đăng xuất (Hết tiền/Hết giờ/Đóng cửa)!";
                 }
             }
-            updateBookingLogics();
         }
 
         if (appState == 0) { 
@@ -557,9 +551,16 @@ void AppManager::run() {
                         else if (CheckCollisionPointRec(mousePoint, {500, 440, 420, 40})) activePopInp = 7;
                     }
                     else if (popupState == 15) {
-                        if (CheckCollisionPointRec(mousePoint, {770, 440, 100, 40})) addVirtualMinutes(15);
-                        if (CheckCollisionPointRec(mousePoint, {890, 440, 100, 40})) addVirtualMinutes(60);
-                        if (CheckCollisionPointRec(mousePoint, {1010, 440, 100, 40})) addVirtualMinutes(1440);
+                        int skipMins = 0;
+                        if (CheckCollisionPointRec(mousePoint, {770, 440, 100, 40})) skipMins = 15;
+                        if (CheckCollisionPointRec(mousePoint, {890, 440, 100, 40})) skipMins = 60;
+                        if (CheckCollisionPointRec(mousePoint, {1010, 440, 100, 40})) skipMins = 1440;
+                        if (skipMins > 0) {
+                            std::vector<string> kickedUsers = AdminController::addVirtualMinutes(skipMins, vDay, vMonth, vYear, vHour, vMinute, dsDatLich, dsTaiKhoan, grid, isHappyHourActive);
+                            if (currentUser != nullptr && std::find(kickedUsers.begin(), kickedUsers.end(), currentUser->getUsername()) != kickedUsers.end()) {
+                                appState = 0; currentUser = nullptr; loginMessage = "Tài khoản bị đăng xuất!";
+                            }
+                        }
                         if (CheckCollisionPointRec(mousePoint, {880, 520, 150, 45})) popupState = 0; 
                     }
 
@@ -724,7 +725,7 @@ void AppManager::run() {
                         if (popupState == 1) { 
                             if (popInp1.empty()) popMsg = "Vui long chon 1 khach hang!";
                             else {
-                                int res = AdminController::assignSeat(popInp1, selectedMachine, dsTaiKhoan, grid);
+                                int res = adminCtrl->assignSeat(popInp1, selectedMachine);
                                 if (res == 1) { 
                                     for (int r = 0; r < ROWS; r++) {
                                         for (int c = 0; c < COLS; c++) {
@@ -807,17 +808,16 @@ void AppManager::run() {
                         else if (popupState == 3) { 
                             if (popInp1 != currentUser->getPassword()) popMsg = "Mat khau cu khong dung!";
                             else {
-                                bool ok = ClientController::changePassword(dsTaiKhoan, currentUser->getUsername(), popInp2);
+                                bool ok = clientCtrl->changePassword(currentUser->getUsername(), popInp2);
                                 if (ok) popupState = 0; else popMsg = "Mat khau moi phai khac mat khau cu!";
                             }
                         }
                         else if (popupState == 4) { 
                             int loaiMay = 0;
-                            int idMay = ClientController::getAssignedMachine(currentUser->getUsername(), grid, loaiMay);
-                            if (idMay != -1) {
+                            int idMay = clientCtrl->getAssignedMachine(currentUser->getUsername(), loaiMay);
+                            if (idMay != -1){
                                 ClientController::returnMachine(currentUser->getUsername(), idMay, grid);
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
-
                                 popupState = 0;
                                 appState = 0; 
                                 currentUser = nullptr; 
@@ -861,153 +861,4 @@ void AppManager::run() {
     UnloadRenderTexture(target);
     UnloadFont(appFont);
     CloseWindow(); 
-}
-
-void AppManager::updateBookingLogics() {
-    string todayStr = TextFormat("%02d/%02d/%d", vDay, vMonth, vYear);
-    int currMinsTotal = vHour * 60 + vMinute;
-    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
-        DatLich* b = node->data;
-        if (b->getNgayDat() == todayStr) {
-            int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
-            // 1. TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
-            if (currMinsTotal < bookMins) {
-                b->setTrangThai(0); 
-                if (currMinsTotal >= bookMins - 15) {
-                    int mId = b->getIdMay();
-                    for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                        if (grid[r][c]->getId() == mId) {
-                            if (grid[r][c]->getTrangThai() == 1 && (grid[r][c]->getCurrentClient() == nullptr || grid[r][c]->getCurrentClient()->getUsername() != b->getSdtKhach())) {
-                                grid[r][c]->setTrangThai(4); 
-                                grid[r][c]->freeMachine(); 
-                            } else if (grid[r][c]->getTrangThai() == 0 || grid[r][c]->getTrangThai() == 2) {
-                                grid[r][c]->setTrangThai(4); 
-                            }
-                        }
-                    }
-                }
-            }
-            // 2. TRONG GIỜ ĐẶT
-            else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
-                b->setTrangThai(1); 
-                int mId = b->getIdMay();
-                for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                    if (grid[r][c]->getId() == mId) {
-                        Client* cUser = nullptr;
-                        for(Node<User*>* uNode = dsTaiKhoan.getHead(); uNode != nullptr; uNode = uNode->next) {
-                            if (uNode->data->getUsername() == b->getSdtKhach()) {
-                                cUser = dynamic_cast<Client*>(uNode->data);
-                                break;
-                            }
-                        }
-                        if (cUser != nullptr) {
-                            // admin tua lố giờ, khách cũ vẫn còn ngồi -> Đá khẩn cấp
-                            if (grid[r][c]->getTrangThai() == 1 && (grid[r][c]->getCurrentClient() == nullptr || grid[r][c]->getCurrentClient()->getUsername() != b->getSdtKhach())) {
-                                grid[r][c]->freeMachine();
-                                grid[r][c]->setTrangThai(2); 
-                            }
-                            // Tiến hành xếp máy
-                            if (grid[r][c]->getTrangThai() == 0 || grid[r][c]->getTrangThai() == 4 || grid[r][c]->getTrangThai() == 2) {
-                                // Chống phân thân
-                                for (int r2 = 0; r2 < ROWS; r2++) {
-                                    for (int c2 = 0; c2 < COLS; c2++) {
-                                        if (grid[r2][c2]->getCurrentClient() == cUser && grid[r2][c2]->getId() != mId) {
-                                            grid[r2][c2]->freeMachine(); 
-                                            grid[r2][c2]->setTrangThai(2); 
-                                        }
-                                    }
-                                }
-                                grid[r][c]->assignClient(cUser);
-                                grid[r][c]->setTrangThai(1); 
-                            }
-                        }
-                    }
-                }
-            }
-            // 3. HẾT GIỜ 
-            else {
-                if (b->getTrangThai() == 1) { 
-                    int mId = b->getIdMay();
-                    for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                        if (grid[r][c]->getId() == mId && grid[r][c]->getCurrentClient() != nullptr && grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                            if (currentUser != nullptr && currentUser->getUsername() == b->getSdtKhach()) {
-                                appState = 0; currentUser = nullptr; loginMessage = "Đã hết thời gian đặt lịch!";
-                            }
-                            grid[r][c]->freeMachine(); 
-                            grid[r][c]->setTrangThai(2); 
-                        }
-                    }
-                }
-                b->setTrangThai(2); 
-            }
-        }
-    }
-    FileManager::saveGrid("Data/MayTram.txt", grid);
-    FileManager::saveBookings("Data/Booking.txt", dsDatLich);
-}
-
-void AppManager::addVirtualMinutes(int mins) {
-    int skipSeconds = mins * 60;
-    for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-            if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
-                string u = grid[r][c]->getCurrentClient()->getUsername();
-                double rRate = ClientController::getTickRate(grid[r][c]->getLoaiMay(), isHappyHourActive);
-                double amount = rRate * skipSeconds;
-                if (mins > 0) {
-                    bool ok = ClientController::processTick(dsTaiKhoan, u, amount);
-                    if (!ok) {
-                        grid[r][c]->freeMachine();
-                        grid[r][c]->setTrangThai(2); 
-                        if (currentUser != nullptr && currentUser->getUsername() == u) {
-                            appState = 0; currentUser = nullptr; loginMessage = "Tai khoan het tien!";
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if (mins > 0) {
-        vMinute += mins;
-        while (vMinute >= 60) { vMinute -= 60; vHour++; }
-        while (vHour >= 24) { 
-            vHour -= 24; vDay++; 
-            int maxDays = 31;
-            if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
-            else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
-            if(vDay > maxDays){ vDay = 1; vMonth++; } 
-            if(vMonth > 12){ vMonth = 1; vYear++; } 
-        }
-    } else {
-        vMinute += mins;
-        while (vMinute < 0) { vMinute += 60; vHour--; }
-        while (vHour < 0) { 
-            vHour += 24; vDay--; 
-            if(vDay < 1){ 
-                vMonth--; 
-                if(vMonth < 1){ vMonth = 12; vYear--; } 
-                int maxDays = 31;
-                if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
-                else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
-                vDay = maxDays;
-            } 
-        }
-    }
-    if (vHour < 7 || vHour >= 22) {
-        bool kicked = false;
-        for (int r = 0; r < ROWS; r++) {
-            for (int c = 0; c < COLS; c++) {
-                if (grid[r][c]->getCurrentClient() != nullptr) {
-                    if (currentUser != nullptr && currentUser->getUsername() == grid[r][c]->getCurrentClient()->getUsername()) {
-                        appState = 0; currentUser = nullptr; loginMessage = "Hết giờ hoạt động (22:00 - 07:00)!";
-                    }
-                    grid[r][c]->freeMachine();
-                    grid[r][c]->setTrangThai(2);
-                    kicked = true;
-                }
-            }
-        }
-        if (kicked) FileManager::saveGrid("Data/MayTram.txt", grid);
-    }
-    else if (mins > 0) FileManager::saveGrid("Data/MayTram.txt", grid);
 }

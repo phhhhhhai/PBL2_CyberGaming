@@ -27,12 +27,14 @@ private:
     Queue<Order*> ordersQueue;
     DoublyLinkedList<CartItem*> cartList;
     
-    // Ma trận con trỏ đối tượng
+    AdminController* adminCtrl;
+    ClientController* clientCtrl;
+
     MayTram* grid[ROWS][COLS];
 
     int appState;          
     int currentTab;        
-    User* currentUser; // Quản lý user hiện tại bằng con trỏ thay vì Index
+    User* currentUser;
 
     string inputUser = "";
     string inputPass = "";
@@ -58,13 +60,9 @@ private:
     int vYear = 2026; int vMonth = 10; int vDay = 29;
     int vHour = 13; int vMinute = 0; int vSecond = 0;
     float virtualTimer = 0.0f;
-
-    void addVirtualMinutes(int mins); 
-
-    void updateBookingLogics();
-
 public:
     AppManager();
+    ~AppManager();
     void run();
 };
 
