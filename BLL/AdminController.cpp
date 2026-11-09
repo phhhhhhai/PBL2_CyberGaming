@@ -82,23 +82,6 @@ bool AdminController::updatePassword(string username, string newPass) {
     return false;
 }
 
-bool AdminController::deleteTaiKhoan(string username) {
-    User* u = findUserByPhone(username);
-    if (u) {
-        MayTram* m = findMachineByUsername(username);
-        if (m) m->freeMachine();
-
-        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-            if (p->data->getUsername() == username) {
-                delete p->data;
-                dsTaiKhoan.remove(p);
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 int AdminController::assignSeat(string username, int idMay) {
     Client* targetClient = findClientByPhone(username);
     if (!targetClient) return -4; 
@@ -151,6 +134,62 @@ bool AdminController::deleteMonAn(int idXoa) {
         if (p->data->getId() == idXoa) {
             delete p->data;
             dsMon.remove(p);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool AdminController::deleteTaiKhoan(string username) {
+    User* u = findUserByPhone(username);
+    if (u) {
+        // 1. Giải phóng máy nếu user đang ngồi chơi trực tiếp
+        MayTram* m = findMachineByUsername(username);
+        if (m) m->freeMachine();
+
+        // 2. Xóa các đơn đặt lịch của user này và nhả máy đang giữ chỗ (trạng thái 4)
+        Node<DatLich*>* bNode = dsDatLich.getHead();
+        while (bNode != nullptr) {
+            Node<DatLich*>* nextNode = bNode->next;
+            if (bNode->data->getSdtKhach() == username) {
+                if (bNode->data->getTrangThai() == 0) {
+                    MayTram* bookM = findMachineById(bNode->data->getIdMay());
+                    if (bookM && bookM->getTrangThai() == 4) bookM->setTrangThai(0);
+                }
+                delete bNode->data; 
+                dsDatLich.remove(bNode);
+            }
+            bNode = nextNode;
+        }
+
+        // 3. Xóa user khỏi danh sách tài khoản
+        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+            if (p->data->getUsername() == username) {
+                delete p->data;
+                dsTaiKhoan.remove(p);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool AdminController::deleteBooking(int bookingId) {
+    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+        DatLich* b = node->data;
+        if (b->getId() == bookingId) {
+            MayTram* m = findMachineById(b->getIdMay());
+            if (m != nullptr) {
+                if (b->getTrangThai() == 0 && m->getTrangThai() == 4) {
+                    m->setTrangThai(0); // Nhả máy đang khóa chờ book
+                }
+                else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                    m->freeMachine(); 
+                    m->setTrangThai(2); // Khách đang chơi bị hủy đơn thì đá ra, máy chuyển về trạng thái dọn dẹp
+                }
+            }
+            delete b; 
+            dsDatLich.remove(node);
             return true;
         }
     }
