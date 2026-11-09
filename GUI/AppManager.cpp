@@ -213,13 +213,10 @@ void AppManager::run() {
                                 RaylibUI::moveNotificationMsg = "Tai khoan khong du tien cho loai may nay!";
                                 RaylibUI::moveNotificationTimer = 2.0f;
                             } else {
-                                // Thực hiện đổi máy trên sơ đồ phòng máy
                                 grid[destR][destC]->assignClient(cUser);
                                 grid[srcR][srcC]->freeMachine();
 
-                                // LƯU Ý: Đã xóa bỏ hoàn toàn vòng lặp cập nhật lại ordersQueue ở đây 
-                                // để các đơn hàng cũ giữ nguyên vị trí máy lúc gọi!
-                                
+                        
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                             }
                         }
@@ -751,6 +748,13 @@ void AppManager::run() {
                             else {
                                 int res = AdminController::assignSeat(popInp1, selectedMachine, dsTaiKhoan, grid);
                                 if (res == 1) { 
+                                    for (int r = 0; r < ROWS; r++) {
+                                        for (int c = 0; c < COLS; c++) {
+                                            if (grid[r][c]->getId() == selectedMachine) {
+                                                grid[r][c]->setTrangThai(3);
+                                            }
+                                        }
+                                    }
                                     FileManager::saveGrid("Data/MayTram.txt", grid);
                                     popupState = 0; selectedMachine = -1; 
                                 }
@@ -826,7 +830,6 @@ void AppManager::run() {
                 }
             }
         }
-
         // ================= RENDER HIỂN THỊ =================
         BeginTextureMode(target);
         ClearBackground(RAYWHITE); 
@@ -856,7 +859,6 @@ void AppManager::run() {
     UnloadFont(appFont);
     CloseWindow(); 
 }
-
 void AppManager::addVirtualMinutes(int mins) {
     int skipSeconds = mins * 60;
     for (int r = 0; r < ROWS; r++) {
