@@ -109,7 +109,17 @@ void AppManager::run() {
                                         break;
                                     }
                                 }
-                                if (cUser != nullptr) grid[r][c]->assignClient(cUser);
+                                if (cUser != nullptr) {
+                                    for (int r2 = 0; r2 < ROWS; r2++) {
+                                        for (int c2 = 0; c2 < COLS; c2++) {
+                                            if (grid[r2][c2]->getCurrentClient() == cUser && grid[r2][c2]->getId() != mId) {
+                                                grid[r2][c2]->freeMachine(); 
+                                                grid[r2][c2]->setTrangThai(2); 
+                                            }
+                                        }
+                                    }
+                                    grid[r][c]->assignClient(cUser);
+                                }
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                             }
                         }
