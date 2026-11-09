@@ -85,16 +85,45 @@ bool AdminController::updatePassword(string username, string newPass) {
 int AdminController::assignSeat(string username, int idMay) {
     Client* targetClient = findClientByPhone(username);
     if (!targetClient) return -4; 
-
     MayTram* m = findMachineById(idMay);
     if (!m) return -1; 
     if (m->getTrangThai() != 0) return -2; 
-
     double gia1Gio = (m->getLoaiMay() == 0) ? 10000 : ((m->getLoaiMay() == 1) ? 14000 : 20000);
     if (targetClient->getSoDu() < gia1Gio) return -3; 
-
     m->assignClient(targetClient);
     return 1; 
+}
+
+bool AdminController::isMachineInBooking(int idMay) {
+    for (Node<DatLich*>* p = dsDatLich.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getIdMay() == idMay && p->data->getTrangThai() == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int AdminController::changeMachine(int srcId, int destId) {
+    MayTram* srcM = findMachineById(srcId);
+    MayTram* destM = findMachineById(destId);
+    if (!srcM || !destM) return -1; // Lỗi không tìm thấy máy
+    if (destM->getTrangThai() != 0) return -2; // Máy đích không trống
+    Client* cUser = srcM->getCurrentClient();
+    if (!cUser) return -1;
+    // Máy đang thuộc đơn Booking thì không được đổi
+    if (isMachineInBooking(srcId)) return -5; 
+    // Kiểm tra tài chính cho máy mới
+    double gia1Gio = (destM->getLoaiMay() == 0) ? 10000 : ((destM->getLoaiMay() == 1) ? 14000 : 20000);
+    if (cUser->getSoDu() < gia1Gio) return -3;
+    // Thực hiện đổi máy và bê nguyên trạng thái cũ sang
+    int oldState = srcM->getTrangThai();
+    destM->assignClient(cUser);
+    destM->setTrangThai(oldState);
+    // Dọn dẹp máy cũ
+    srcM->freeMachine();
+    srcM->setTrangThai(2); 
+
+    return 1;
 }
 
 int AdminController::validateAndAddMonAn(string tenMon, string giaStr) {
@@ -273,19 +302,44 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
 
 std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
     std::vector<string> kickedUsers;
-    char dateBuf[20];
-    snprintf(dateBuf, sizeof(dateBuf), "%02d/%02d/%d", vDay, vMonth, vYear); 
-    string todayStr(dateBuf);
-    
     int currMinsTotal = vHour * 60 + vMinute;
+    // Tính tổng số ngày hiện tại của hệ thống 
+    int currentTotalDays = vYear * 365 + vDay;
+    int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
+    for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
     
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
-        if (b->getNgayDat() == todayStr) {
+        MayTram* m = findMachineById(b->getIdMay()); 
+        // Tính tổng số ngày của đơn đặt lịch
+        string dateStr = b->getNgayDat();
+        int bD = 0, bM = 0, bY = 0;
+        if (dateStr.length() == 10) {
+            bD = stoi(dateStr.substr(0, 2));
+            bM = stoi(dateStr.substr(3, 2));
+            bY = stoi(dateStr.substr(6, 4));
+        }
+        int bookTotalDays = bY * 365 + bD;
+        int bMDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+        if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
+        for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];
+        // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn) -> Ép văng khách, kết thúc đơn
+        if (bookTotalDays < currentTotalDays) {
+            if (b->getTrangThai() != 2) {
+                if (m != nullptr && m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                    kickedUsers.push_back(b->getSdtKhach());
+                    m->freeMachine(); 
+                    m->setTrangThai(2); 
+                }
+                b->setTrangThai(2);
+            }
+        }
+        // 2. XỬ LÝ ĐƠN TRONG NGÀY HÔM NAY 
+        else if (bookTotalDays == currentTotalDays) {
             int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
-            MayTram* m = findMachineById(b->getIdMay()); 
-            if (!m) continue;            
-            // 1. TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
+            if (!m) continue;
+            
             if (currMinsTotal < bookMins) {
                 b->setTrangThai(0); 
                 if (currMinsTotal >= bookMins - 15) {
@@ -297,18 +351,16 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
                     }
                 }
             }
-            // 2. TRONG GIỜ ĐẶT
             else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
                 b->setTrangThai(1); 
-                Client* cUser = findClientByPhone(b->getSdtKhach());
-
+                Client* cUser = findClientByPhone(b->getSdtKhach()); 
                 if (cUser != nullptr) {
                     if (m->getTrangThai() == 1 && (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
                         m->freeMachine();
                         m->setTrangThai(2); 
                     }
                     if (m->getTrangThai() == 0 || m->getTrangThai() == 4 || m->getTrangThai() == 2) {
-                        MayTram* oldM = findMachineByUsername(cUser->getUsername()); // Chống phân thân
+                        MayTram* oldM = findMachineByUsername(cUser->getUsername()); 
                         if (oldM && oldM->getId() != m->getId()) {
                             oldM->freeMachine();
                             oldM->setTrangThai(2);
@@ -318,7 +370,6 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
                     }
                 }
             }
-            // 3. HẾT GIỜ
             else {
                 if (b->getTrangThai() == 1) { 
                     if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {

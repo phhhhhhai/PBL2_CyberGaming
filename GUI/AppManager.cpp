@@ -153,30 +153,21 @@ void AppManager::run() {
                     Rectangle btnNo = {980, 530, 140, 45};
 
                     if (CheckCollisionPointRec(mousePoint, btnYes)) {
-                        int srcR = -1, srcC = -1, destR = -1, destC = -1;
-                        for (int r = 0; r < ROWS; r++) {
-                            for (int c = 0; c < COLS; c++) {
-                                if (grid[r][c]->getId() == RaylibUI::sourceMachineId) { srcR = r; srcC = c; }
-                                if (grid[r][c]->getId() == RaylibUI::targetMachineId) { destR = r; destC = c; }
-                            }
-                        }
-
-                        if (srcR != -1 && destR != -1 && grid[srcR][srcC]->getCurrentClient() != nullptr) {
-                            int loaiMoi = grid[destR][destC]->getLoaiMay();
-                            double giaMoi = (loaiMoi == 0) ? 10000 : ((loaiMoi == 1) ? 14000 : 20000);
-                            
-                            Client* cUser = grid[srcR][srcC]->getCurrentClient();
-                            if (cUser->getSoDu() < giaMoi) {
-                                RaylibUI::moveNotificationMsg = "Tai khoan khong du tien cho loai may nay!";
-                                RaylibUI::moveNotificationTimer = 2.0f;
-                            } else {
-                                grid[destR][destC]->assignClient(cUser);
-                                grid[srcR][srcC]->freeMachine();
-
-                        
-                                FileManager::saveGrid("Data/MayTram.txt", grid);
-                            }
-                        }
+                        int res = adminCtrl->changeMachine(RaylibUI::sourceMachineId, RaylibUI::targetMachineId);
+                        if (res == 1) {
+                            FileManager::saveGrid("Data/MayTram.txt", grid);
+                        } else if (res == -3) {
+                            RaylibUI::moveNotificationMsg = "Tài khoản không đủ tiền cho loại máy này!";
+                            RaylibUI::moveNotificationTimer = 2.0f;
+                        } else if (res == -5) {
+                            RaylibUI::moveNotificationMsg = "Máy đang chạy Booking, không thể đổi!";
+                            RaylibUI::moveNotificationTimer = 2.0f;
+                        }                        
+                        RaylibUI::showConfirmMoveModal = false;
+                        RaylibUI::sourceMachineId = -1;
+                        RaylibUI::targetMachineId = -1;
+                    }
+                    else if (CheckCollisionPointRec(mousePoint, btnNo)) {
                         RaylibUI::showConfirmMoveModal = false;
                         RaylibUI::sourceMachineId = -1;
                         RaylibUI::targetMachineId = -1;
@@ -512,10 +503,14 @@ void AppManager::run() {
                     } 
                     else if (popupState == 10) {
                         if (CheckCollisionPointRec(mousePoint, {750, 480, 200, 45})) {
-                            RaylibUI::sourceMachineId = selectedMachine;
-                            RaylibUI::isChangingMachine = true;
-                            popupState = 0;
-                            selectedMachine = -1;
+                            if (adminCtrl->isMachineInBooking(selectedMachine)) {
+                                popMsg = "Máy Booking, không thể đổi!";
+                            } else {
+                                RaylibUI::sourceMachineId = selectedMachine;
+                                RaylibUI::isChangingMachine = true;
+                                popupState = 0;
+                                selectedMachine = -1;
+                            }
                         }
                         else if (CheckCollisionPointRec(mousePoint, {980, 480, 150, 45})) {
                             popupState = 0; selectedMachine = -1;

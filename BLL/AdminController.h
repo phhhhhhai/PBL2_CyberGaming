@@ -36,6 +36,8 @@ public:
     bool deleteBooking(int bookingId);
 
     int assignSeat(string username, int idMay);
+    bool isMachineInBooking(int idMay);
+    int changeMachine(int srcId, int destId);
     
     int validateAndAddMonAn(string tenMon, string giaStr);
     int addMonAn(string tenMon, double donGia);
