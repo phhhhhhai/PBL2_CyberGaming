@@ -406,7 +406,7 @@ void AppManager::run() {
                                             for (int c = 0; c < COLS; c++) {
                                                 if (grid[r][c]->getId() == b->getIdMay()) {
                                                     if (b->getTrangThai() == 0 && grid[r][c]->getTrangThai() == 4) {
-                                                        grid[r][c]->setTrangThai(0); g
+                                                        grid[r][c]->setTrangThai(0); 
                                                     }
                                                     else if (b->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr && 
                                                             grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
