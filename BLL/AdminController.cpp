@@ -1,6 +1,8 @@
 #include "AdminController.h"
 #include "../DAL/FileManager.h"
 #include <cstdio> 
+#include <algorithm>
+#include "ClientController.h"
 
 AdminController::AdminController(DoublyLinkedList<User*>& users, DoublyLinkedList<DatLich*>& bookings, DoublyLinkedList<MonAn*>& foods, MayTram* g[ROWS][COLS]) 
     : dsTaiKhoan(users), dsDatLich(bookings), dsMon(foods) {

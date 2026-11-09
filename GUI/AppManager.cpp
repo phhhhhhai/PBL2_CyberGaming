@@ -35,7 +35,7 @@ AppManager::~AppManager() {
 }
 
 void AppManager::run() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "He Thong Quan Ly Cyber Gaming"); 
     
     int codepoints[8000];
@@ -556,7 +556,7 @@ void AppManager::run() {
                         if (CheckCollisionPointRec(mousePoint, {890, 440, 100, 40})) skipMins = 60;
                         if (CheckCollisionPointRec(mousePoint, {1010, 440, 100, 40})) skipMins = 1440;
                         if (skipMins > 0) {
-                            std::vector<string> kickedUsers = AdminController::addVirtualMinutes(skipMins, vDay, vMonth, vYear, vHour, vMinute, dsDatLich, dsTaiKhoan, grid, isHappyHourActive);
+                            std::vector<string> kickedUsers = adminCtrl->addVirtualMinutes(skipMins, vDay, vMonth, vYear, vHour, vMinute, isHappyHourActive);
                             if (currentUser != nullptr && std::find(kickedUsers.begin(), kickedUsers.end(), currentUser->getUsername()) != kickedUsers.end()) {
                                 appState = 0; currentUser = nullptr; loginMessage = "Tài khoản bị đăng xuất!";
                             }
@@ -697,7 +697,7 @@ void AppManager::run() {
                             if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
                             for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
 
-                            int res = AdminController::validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId, dsDatLich, dsTaiKhoan);
+                            int res = adminCtrl->validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId);
                             
                             if (res == 1) {
                                 FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan); FileManager::saveBookings("Data/Booking.txt", dsDatLich);
@@ -744,7 +744,7 @@ void AppManager::run() {
                         } 
                         else if (popupState == 2) { 
                             double soDuGoc = 0; try { soDuGoc = std::stod(popInp3); } catch(...) { soDuGoc = 0; }
-                            int res = AdminController::addTaiKhoan(dsTaiKhoan, popInp1, popInp2, soDuGoc);
+                            int res = adminCtrl->addTaiKhoan(popInp1, popInp2, soDuGoc);
                             if (res == 1) popupState = 0;
                             else if (res == 0) popMsg = "SĐT da ton tai!";
                             else if (res == -3) popMsg = "So du ban dau phai >= 10000 VND!"; 
@@ -754,11 +754,11 @@ void AppManager::run() {
                             double napThem = 0; 
                             if (!popInp2.empty()) try { napThem = std::stod(popInp2); } catch(...) {}
                             bool napOk = true;
-                            if (napThem > 0) napOk = AdminController::napTien(dsTaiKhoan, selectedAccountUsername, napThem);
+                            if (napThem > 0) napOk = adminCtrl->napTien(selectedAccountUsername, napThem);
                             
                             if (!napOk) { popMsg = "Nap that bai (Toi da 5tr/lan, tong Du < 10tr)"; } 
                             else {
-                                AdminController::updatePassword(dsTaiKhoan, selectedAccountUsername, popInp1);
+                                adminCtrl->updatePassword(selectedAccountUsername, popInp1);
                                 FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
                                 popupState = 0; selectedAccountUsername = "";
                             }
@@ -781,11 +781,11 @@ void AppManager::run() {
                             }
                             FileManager::saveBookings("Data/Booking.txt", dsDatLich);
                             FileManager::saveGrid("Data/MayTram.txt", grid);
-                            AdminController::deleteTaiKhoan(dsTaiKhoan, selectedAccountUsername, grid);
+                            adminCtrl->deleteTaiKhoan(selectedAccountUsername);
                             popupState = 0; selectedAccountUsername = "";
                         }
                         else if (popupState == 7) { 
-                            int res = AdminController::validateAndAddMonAn(dsMon, popInp1, popInp2);
+                            int res = adminCtrl->validateAndAddMonAn(popInp1, popInp2);
                             if (res == 1) popupState = 0;
                             else if (res == -1) popMsg = "Vui long nhap du thong tin!";
                             else if (res == -2) popMsg = "Don gia phai co duoi 000!";
@@ -797,12 +797,12 @@ void AppManager::run() {
                             else if (popInp2.length() < 4 || popInp2.substr(popInp2.length() - 3) != "000") popMsg = "Don gia phai co duoi 000!";
                             else {
                                 double gia = 0; try { gia = std::stod(popInp2); } catch(...) { gia = 0; }
-                                bool ok = AdminController::updateMonAn(dsMon, selectedFoodId, popInp1, gia);
+                                bool ok = adminCtrl->updateMonAn(selectedFoodId, popInp1, gia);
                                 if (ok) { popupState = 0; selectedFoodId = -1; } else popMsg = "Gia tien khong hop le!";
                             }
                         }
                         else if (popupState == 9) { 
-                            AdminController::deleteMonAn(dsMon, selectedFoodId);
+                            adminCtrl->deleteMonAn(selectedFoodId);
                             popupState = 0; selectedFoodId = -1;
                         }
                         else if (popupState == 3) { 
@@ -816,7 +816,7 @@ void AppManager::run() {
                             int loaiMay = 0;
                             int idMay = clientCtrl->getAssignedMachine(currentUser->getUsername(), loaiMay);
                             if (idMay != -1){
-                                ClientController::returnMachine(currentUser->getUsername(), idMay, grid);
+                                clientCtrl->returnMachine(currentUser->getUsername());
                                 FileManager::saveGrid("Data/MayTram.txt", grid);
                                 popupState = 0;
                                 appState = 0; 
