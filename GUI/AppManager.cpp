@@ -77,79 +77,7 @@ void AppManager::run() {
                     }
                 }
             }
-
-            // 2. Logic Đệm 15 Phút - Khóa máy Booking
-            string todayStr = TextFormat("%02d/%02d/%d", vDay, vMonth, vYear);
-            int currMinsTotal = vHour * 60 + vMinute;
-
-            for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
-                DatLich* b = node->data;
-                if (b->getNgayDat() == todayStr) {
-                    int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
-                    if (currMinsTotal < bookMins) {
-                        b->setTrangThai(0); // Chưa đến giờ
-                        if (currMinsTotal >= bookMins - 15) {
-                            int mId = b->getIdMay();
-                            for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                                if (grid[r][c]->getId() == mId) {
-                                    if (grid[r][c]->getTrangThai() == 1 && (grid[r][c]->getCurrentClient() == nullptr || grid[r][c]->getCurrentClient()->getUsername() != b->getSdtKhach())) {
-                                        grid[r][c]->setTrangThai(4); 
-                                        grid[r][c]->freeMachine(); // Đá khách vãng lai
-                                        FileManager::saveGrid("Data/MayTram.txt", grid);
-                                    } else if (grid[r][c]->getTrangThai() == 0 || grid[r][c]->getTrangThai() == 2) {
-                                        grid[r][c]->setTrangThai(4); 
-                                        FileManager::saveGrid("Data/MayTram.txt", grid);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
-                        b->setTrangThai(1); // Đang chơi
-                        int mId = b->getIdMay();
-                        for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                            if (grid[r][c]->getId() == mId && (grid[r][c]->getTrangThai() == 4 || grid[r][c]->getTrangThai() == 0)) {
-                                Client* cUser = nullptr;
-                                for(Node<User*>* uNode = dsTaiKhoan.getHead(); uNode != nullptr; uNode = uNode->next) {
-                                    if (uNode->data->getUsername() == b->getSdtKhach()) {
-                                        cUser = dynamic_cast<Client*>(uNode->data);
-                                        break;
-                                    }
-                                }
-                                if (cUser != nullptr) {
-                                    for (int r2 = 0; r2 < ROWS; r2++) {
-                                        for (int c2 = 0; c2 < COLS; c2++) {
-                                            if (grid[r2][c2]->getCurrentClient() == cUser && grid[r2][c2]->getId() != mId) {
-                                                grid[r2][c2]->freeMachine(); 
-                                                grid[r2][c2]->setTrangThai(2); 
-                                            }
-                                        }
-                                    }
-                                    grid[r][c]->assignClient(cUser);
-                                }
-                                FileManager::saveGrid("Data/MayTram.txt", grid);
-                            }
-                        }
-                    }
-                    else {
-                        if (b->getTrangThai() == 1) { 
-                            int mId = b->getIdMay();
-                            for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
-                                if (grid[r][c]->getId() == mId && grid[r][c]->getCurrentClient() != nullptr && grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                                    if (currentUser != nullptr && currentUser->getUsername() == b->getSdtKhach()) {
-                                        appState = 0; currentUser = nullptr; loginMessage = "Đã hết thời gian đặt lịch!";
-                                    }
-                                    grid[r][c]->freeMachine(); 
-                                    grid[r][c]->setTrangThai(2); 
-                                    FileManager::saveGrid("Data/MayTram.txt", grid);
-                                }
-                            }
-                        }
-                        b->setTrangThai(2); // Đã xong
-                        FileManager::saveBookings("Data/Booking.txt", dsDatLich);
-                    }
-                }
-            }
+            updateBookingLogics();
         }
 
         if (appState == 0) { 
@@ -934,6 +862,90 @@ void AppManager::run() {
     UnloadFont(appFont);
     CloseWindow(); 
 }
+
+void AppManager::updateBookingLogics() {
+    string todayStr = TextFormat("%02d/%02d/%d", vDay, vMonth, vYear);
+    int currMinsTotal = vHour * 60 + vMinute;
+    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+        DatLich* b = node->data;
+        if (b->getNgayDat() == todayStr) {
+            int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
+            // 1. TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
+            if (currMinsTotal < bookMins) {
+                b->setTrangThai(0); 
+                if (currMinsTotal >= bookMins - 15) {
+                    int mId = b->getIdMay();
+                    for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
+                        if (grid[r][c]->getId() == mId) {
+                            if (grid[r][c]->getTrangThai() == 1 && (grid[r][c]->getCurrentClient() == nullptr || grid[r][c]->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                                grid[r][c]->setTrangThai(4); 
+                                grid[r][c]->freeMachine(); 
+                            } else if (grid[r][c]->getTrangThai() == 0 || grid[r][c]->getTrangThai() == 2) {
+                                grid[r][c]->setTrangThai(4); 
+                            }
+                        }
+                    }
+                }
+            }
+            // 2. TRONG GIỜ ĐẶT
+            else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
+                b->setTrangThai(1); 
+                int mId = b->getIdMay();
+                for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
+                    if (grid[r][c]->getId() == mId) {
+                        Client* cUser = nullptr;
+                        for(Node<User*>* uNode = dsTaiKhoan.getHead(); uNode != nullptr; uNode = uNode->next) {
+                            if (uNode->data->getUsername() == b->getSdtKhach()) {
+                                cUser = dynamic_cast<Client*>(uNode->data);
+                                break;
+                            }
+                        }
+                        if (cUser != nullptr) {
+                            // admin tua lố giờ, khách cũ vẫn còn ngồi -> Đá khẩn cấp
+                            if (grid[r][c]->getTrangThai() == 1 && (grid[r][c]->getCurrentClient() == nullptr || grid[r][c]->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                                grid[r][c]->freeMachine();
+                                grid[r][c]->setTrangThai(2); 
+                            }
+                            // Tiến hành xếp máy
+                            if (grid[r][c]->getTrangThai() == 0 || grid[r][c]->getTrangThai() == 4 || grid[r][c]->getTrangThai() == 2) {
+                                // Chống phân thân
+                                for (int r2 = 0; r2 < ROWS; r2++) {
+                                    for (int c2 = 0; c2 < COLS; c2++) {
+                                        if (grid[r2][c2]->getCurrentClient() == cUser && grid[r2][c2]->getId() != mId) {
+                                            grid[r2][c2]->freeMachine(); 
+                                            grid[r2][c2]->setTrangThai(2); 
+                                        }
+                                    }
+                                }
+                                grid[r][c]->assignClient(cUser);
+                                grid[r][c]->setTrangThai(1); 
+                            }
+                        }
+                    }
+                }
+            }
+            // 3. HẾT GIỜ 
+            else {
+                if (b->getTrangThai() == 1) { 
+                    int mId = b->getIdMay();
+                    for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
+                        if (grid[r][c]->getId() == mId && grid[r][c]->getCurrentClient() != nullptr && grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                            if (currentUser != nullptr && currentUser->getUsername() == b->getSdtKhach()) {
+                                appState = 0; currentUser = nullptr; loginMessage = "Đã hết thời gian đặt lịch!";
+                            }
+                            grid[r][c]->freeMachine(); 
+                            grid[r][c]->setTrangThai(2); 
+                        }
+                    }
+                }
+                b->setTrangThai(2); 
+            }
+        }
+    }
+    FileManager::saveGrid("Data/MayTram.txt", grid);
+    FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+}
+
 void AppManager::addVirtualMinutes(int mins) {
     int skipSeconds = mins * 60;
     for (int r = 0; r < ROWS; r++) {
