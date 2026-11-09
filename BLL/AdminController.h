@@ -33,7 +33,8 @@ public:
     bool napTien(string username, double amount);
     bool updatePassword(string username, string newPass);
     bool deleteTaiKhoan(string username);
-    
+    bool deleteBooking(int bookingId);
+
     int assignSeat(string username, int idMay);
     
     int validateAndAddMonAn(string tenMon, string giaStr);
