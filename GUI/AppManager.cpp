@@ -1,5 +1,6 @@
 #include "AppManager.h"
 #include <iostream>
+#include <fstream>
 
 int soLuongCartItem = 0;
 
@@ -17,6 +18,12 @@ AppManager::AppManager() {
     FileManager::loadMenu("Data/Menu.txt", dsMon);
     FileManager::loadOrders("Data/Orders.txt", ordersQueue);
     FileManager::loadBookings("Data/Booking.txt", dsDatLich);
+
+    std::ifstream fTime("Data/Time.txt");
+    if (fTime.is_open()) {
+        fTime >> vYear >> vMonth >> vDay >> vHour >> vMinute >> vSecond;
+        fTime.close();
+    }
 }
 
 void AppManager::run() {
@@ -125,8 +132,21 @@ void AppManager::run() {
                         }
                     }
                     else {
-                         b->setTrangThai(2); // Đã xong
-                         FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+                        if (b->getTrangThai() == 1) { 
+                            int mId = b->getIdMay();
+                            for (int r = 0; r < ROWS; r++) for (int c = 0; c < COLS; c++) {
+                                if (grid[r][c]->getId() == mId && grid[r][c]->getCurrentClient() != nullptr && grid[r][c]->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                                    if (currentUser != nullptr && currentUser->getUsername() == b->getSdtKhach()) {
+                                        appState = 0; currentUser = nullptr; loginMessage = "Đã hết thời gian đặt lịch!";
+                                    }
+                                    grid[r][c]->freeMachine(); 
+                                    grid[r][c]->setTrangThai(2); 
+                                    FileManager::saveGrid("Data/MayTram.txt", grid);
+                                }
+                            }
+                        }
+                        b->setTrangThai(2); // Đã xong
+                        FileManager::saveBookings("Data/Booking.txt", dsDatLich);
                     }
                 }
             }
@@ -148,6 +168,11 @@ void AppManager::run() {
                         if (p->data->getUsername() == inputUser && p->data->getPassword() == inputPass) {
                             
                             bool isAdmin = (p->data->getRoleId() == 1); 
+                            if (!isAdmin && (vHour < 7 || vHour >= 22)) {
+                                loginMessage = "Hết giờ hoạt động (22:00 - 07:00)!";
+                                found = true; 
+                                break;
+                            }
                             if (!isAdmin) {
                                 bool isAssigned = false;
                                 for (int r = 0; r < ROWS; r++) {
@@ -244,6 +269,7 @@ void AppManager::run() {
                 Rectangle tabBooking  = {770, 0, 180, 50};
 
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    if (CheckCollisionPointRec(mousePoint, {1180, 10, 130, 30})) { popupState = 15; popMsg = ""; }
                     if (isAdmin) {
                         if (RaylibUI::isChangingMachine) {
                             int boxW = 100, boxH = 120, padX = 30, padY = 40, gap = 120, offX = 270, offY = 180;
@@ -272,21 +298,17 @@ void AppManager::run() {
                         }
                         else {
                             if (CheckCollisionPointRec(mousePoint, {1530, 10, 70, 30})) isHappyHourActive = !isHappyHourActive;
-                            if (CheckCollisionPointRec(mousePoint, {1180, 10, 130, 30})) { popupState = 15; popMsg = ""; }
-                            
                             if (CheckCollisionPointRec(mousePoint, tabSoDo)) currentTab = 0;
                             else if (CheckCollisionPointRec(mousePoint, tabTaiKhoan)) currentTab = 1;
                             else if (CheckCollisionPointRec(mousePoint, tabFnB)) currentTab = 2;
                             else if (CheckCollisionPointRec(mousePoint, tabOrder)) currentTab = 3;
                             else if (CheckCollisionPointRec(mousePoint, tabBooking)) currentTab = 4;
-                            
                             if (currentTab == 0) { 
                                 int boxW = 100, boxH = 120, padX = 30, padY = 40, gap = 120, offX = 270, offY = 180;
                                 for (int i = 0; i < ROWS; i++) {
                                     for (int j = 0; j < COLS; j++) {
                                         int ex = (j >= 5) ? gap : 0;
                                         Rectangle rec = {(float)(offX + j*(boxW+padX) + ex), (float)(offY + i*(boxH+padY)), (float)boxW, (float)boxH};
-                                        
                                         if (CheckCollisionPointRec(mousePoint, rec)) {
                                             if (grid[i][j]->getTrangThai() == 0) { 
                                                 selectedMachine = grid[i][j]->getId(); 
@@ -741,24 +763,27 @@ void AppManager::run() {
                             popupState = 0; selectedBookingId = -1;
                         }
                         else if (CheckCollisionPointRec(mousePoint, btnXN14)) {
-                            int currentTotalDays = vYear * 360 + vMonth * 30 + vDay;
-                            int res = AdminController::validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, 
-                                currentTotalDays, selectedBookingId, dsDatLich, dsTaiKhoan);
+                            int currentTotalDays = vYear * 365 + vDay;
+                            int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+                            if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
+                            for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
+
+                            int res = AdminController::validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId, dsDatLich, dsTaiKhoan);
+                            
                             if (res == 1) {
-                                FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
-                                FileManager::saveBookings("Data/Booking.txt", dsDatLich);
-                                popupState = 0; 
-                                selectedBookingId = -1;
+                                FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan); FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+                                popupState = 0; selectedBookingId = -1;
                             }
-                            else if (res == -1) popMsg = "Vui long nhap day du thong tin!";
-                            else if (res == -2) popMsg = "SDT khong hop le!";
-                            else if (res == -3) popMsg = "Dinh dang ngay phai la DD/MM/YYYY!";
-                            else if (res == -4) popMsg = "Chi duoc dat lich may Stream (31 - 40)!";
-                            else if (res == -5) popMsg = "Ngay/thang khong hop le!";
-                            else if (res == -6) popMsg = "Chi duoc dat trong vong 14 NGAY toi!";
-                            else if (res == -7) popMsg = "Thoi gian khong hop le!";
+                            else if (res == -4) popMsg = "Chi duoc dat may Stream (31 - 40)!";
+                            else if (res == -5) popMsg = "Ngay/thang khong ton tai!";
+                            else if (res == -6) popMsg = "Chi duoc dat lich tu 1 -> 7 ngay sau ke tu hom nay!";
                             else if (res == -8) popMsg = "Tai khoan da ton tai. Sai mat khau!";
-                            else if (res == 0)  popMsg = "ID, Thoi gian, Thoi luong phai la so!";
+                            else if (res == -9) popMsg = "Chi duoc dat trong khung gio 07:00 - 22:00!";
+                            else if (res == -10) popMsg = "Dang choi: Chi duoc phep sua Thoi Luong!";
+                            else if (res == -11) popMsg = "Don da ket thuc, khong the sua!";
+                            else if (res == -12) popMsg = "Tien nap tu Booking vuot muc so du 10tr!";
+                            else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
+                            else popMsg = "Thong tin loi hoac khong hop le!";
                         }
                     }
                     else if (CheckCollisionPointRec(mousePoint, btnHuyChung) && popupState != 10 && popupState != 20) {
@@ -797,11 +822,17 @@ void AppManager::run() {
                             else popMsg = "SĐT phai la so & bat dau bang 0!";
                         }
                         else if (popupState == 5) { 
-                            AdminController::updatePassword(dsTaiKhoan, selectedAccountUsername, popInp1);
-                            double napThem = 0; try { napThem = std::stod(popInp2); } catch(...) { napThem = 0; }
-                            if (napThem > 0) AdminController::napTien(dsTaiKhoan, selectedAccountUsername, napThem);
-                            FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
-                            popupState = 0; selectedAccountUsername = "";
+                            double napThem = 0; 
+                            if (!popInp2.empty()) try { napThem = std::stod(popInp2); } catch(...) {}
+                            bool napOk = true;
+                            if (napThem > 0) napOk = AdminController::napTien(dsTaiKhoan, selectedAccountUsername, napThem);
+                            
+                            if (!napOk) { popMsg = "Nap that bai (Toi da 5tr/lan, tong Du < 10tr)"; } 
+                            else {
+                                AdminController::updatePassword(dsTaiKhoan, selectedAccountUsername, popInp1);
+                                FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
+                                popupState = 0; selectedAccountUsername = "";
+                            }
                         }
                         else if (popupState == 6) { 
                             Node<DatLich*>* bNode = dsDatLich.getHead();
@@ -896,7 +927,9 @@ void AppManager::run() {
             { 0.0f, 0.0f }, 0.0f, WHITE);
         EndDrawing();
     }
-
+    std::ofstream outTime("Data/Time.txt");
+    outTime << vYear << " " << vMonth << " " << vDay << " " << vHour << " " << vMinute << " " << vSecond;
+    outTime.close();
     UnloadRenderTexture(target);
     UnloadFont(appFont);
     CloseWindow(); 
@@ -909,7 +942,6 @@ void AppManager::addVirtualMinutes(int mins) {
                 string u = grid[r][c]->getCurrentClient()->getUsername();
                 double rRate = ClientController::getTickRate(grid[r][c]->getLoaiMay(), isHappyHourActive);
                 double amount = rRate * skipSeconds;
-                
                 if (mins > 0) {
                     bool ok = ClientController::processTick(dsTaiKhoan, u, amount);
                     if (!ok) {
@@ -923,15 +955,47 @@ void AppManager::addVirtualMinutes(int mins) {
             }
         }
     }
-    if (mins > 0) FileManager::saveGrid("Data/MayTram.txt", grid);
-
     if (mins > 0) {
         vMinute += mins;
         while (vMinute >= 60) { vMinute -= 60; vHour++; }
-        while (vHour >= 24) { vHour -= 24; vDay++; if(vDay>30){vDay=1; vMonth++;} if(vMonth>12){vMonth=1; vYear++;} }
+        while (vHour >= 24) { 
+            vHour -= 24; vDay++; 
+            int maxDays = 31;
+            if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
+            else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
+            if(vDay > maxDays){ vDay = 1; vMonth++; } 
+            if(vMonth > 12){ vMonth = 1; vYear++; } 
+        }
     } else {
         vMinute += mins;
         while (vMinute < 0) { vMinute += 60; vHour--; }
-        while (vHour < 0) { vHour += 24; vDay--; if(vDay<1){vDay=30; vMonth--;} if(vMonth<1){vMonth=12; vYear--;} }
+        while (vHour < 0) { 
+            vHour += 24; vDay--; 
+            if(vDay < 1){ 
+                vMonth--; 
+                if(vMonth < 1){ vMonth = 12; vYear--; } 
+                int maxDays = 31;
+                if (vMonth == 4 || vMonth == 6 || vMonth == 9 || vMonth == 11) maxDays = 30;
+                else if (vMonth == 2) maxDays = ((vYear % 4 == 0 && vYear % 100 != 0) || (vYear % 400 == 0)) ? 29 : 28;
+                vDay = maxDays;
+            } 
+        }
     }
+    if (vHour < 7 || vHour >= 22) {
+        bool kicked = false;
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                if (grid[r][c]->getCurrentClient() != nullptr) {
+                    if (currentUser != nullptr && currentUser->getUsername() == grid[r][c]->getCurrentClient()->getUsername()) {
+                        appState = 0; currentUser = nullptr; loginMessage = "Hết giờ hoạt động (22:00 - 07:00)!";
+                    }
+                    grid[r][c]->freeMachine();
+                    grid[r][c]->setTrangThai(2);
+                    kicked = true;
+                }
+            }
+        }
+        if (kicked) FileManager::saveGrid("Data/MayTram.txt", grid);
+    }
+    else if (mins > 0) FileManager::saveGrid("Data/MayTram.txt", grid);
 }

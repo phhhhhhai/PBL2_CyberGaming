@@ -16,23 +16,22 @@ bool AdminController::isDuplicateUser(string phone, DoublyLinkedList<User*>& dsT
 int AdminController::addTaiKhoan(DoublyLinkedList<User*>& dsTaiKhoan, string phone, string pass, double initialBalance) {
     if (!isValidPhoneNumber(phone)) return -1; 
     if (initialBalance < 10000) return -3; 
+    if (initialBalance > 10000000) return -4; 
     if (isDuplicateUser(phone, dsTaiKhoan)) return 0; 
 
     int newId = 1;
-    if (dsTaiKhoan.getSize() > 0) {
-        newId = dsTaiKhoan.getTail()->data->getId() + 1;
-    }
+    if (dsTaiKhoan.getSize() > 0) newId = dsTaiKhoan.getTail()->data->getId() + 1;
     dsTaiKhoan.addTail(new Client(newId, phone, pass, initialBalance));
     return 1;
 }
 
 bool AdminController::napTien(DoublyLinkedList<User*>& dsTaiKhoan, string username, double amount) {
-    if (amount <= 0) return false;
+    if (amount <= 0 || amount > 5000000) return false; 
     for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
         if (p->data->getUsername() == username) {
-            // Ép kiểu động sang Client và gọi hàm nghiệp vụ
             Client* c = dynamic_cast<Client*>(p->data);
             if (c) {
+                if (c->getSoDu() + amount > 10000000) return false; 
                 c->napTien(amount);
                 return true;
             }
@@ -148,69 +147,75 @@ bool AdminController::deleteMonAn(DoublyLinkedList<MonAn*>& dsMon, int idXoa) {
 }
 
 int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId, DoublyLinkedList<DatLich*>& dsDatLich, DoublyLinkedList<User*>& dsTaiKhoan) {
-    // 1. Check rỗng
     if (phone.empty() || idMayStr.empty() || date.empty() || hStr.empty() || mStr.empty() || durationStr.empty() || pass.empty()) return -1;
-    
-    // 2. Check định dạng chuỗi
     if (!isValidPhoneNumber(phone)) return -2;
     if (date.length() != 10 || date[2] != '/' || date[5] != '/') return -3;
-    
     try {
-        // 3. Ép kiểu
-        int d = stoi(date.substr(0, 2));
-        int m = stoi(date.substr(3, 2));
-        int y = stoi(date.substr(6, 4));
-        int idMay = stoi(idMayStr);
-        int gio = stoi(hStr);
-        int phut = stoi(mStr);
-        int thoiLuong = stoi(durationStr);
-        
-        // 4. Validate nghiệp vụ
-        int bookTotalDays = y * 360 + m * 30 + d;
-        if (idMay < 31 || idMay > 40) return -4; // Chỉ máy Stream
-        if (d < 1 || d > 30 || m < 1 || m > 12) return -5;
-        if (bookTotalDays < currentTotalDays || bookTotalDays > currentTotalDays + 14) return -6; // Quá 14 ngày
-        if (gio < 0 || gio > 23 || phut < 0 || phut > 59 || thoiLuong <= 0) return -7;
-
-        // 5. Xử lý logic tài khoản
+        int d = stoi(date.substr(0, 2)), m = stoi(date.substr(3, 2)), y = stoi(date.substr(6, 4));
+        int idMay = stoi(idMayStr), gio = stoi(hStr), phut = stoi(mStr), thoiLuong = stoi(durationStr);
         User* targetUser = nullptr;
         for(Node<User*>* uNode = dsTaiKhoan.getHead(); uNode != nullptr; uNode = uNode->next) {
             if (uNode->data->getUsername() == phone) { targetUser = uNode->data; break; }
         }
+        if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
-        if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; // Sai pass
-        
-        // ----- ĐOẠN CODE GIỮ NGUYÊN TỪ ẢNH CỦA BẠN BẮT ĐẦU TỪ ĐÂY -----
         Client* cUser = dynamic_cast<Client*>(targetUser);
         if (cUser == nullptr) {
-            // Tự động sinh ID cho Client mới
             int newClientId = 1;
             if (dsTaiKhoan.getSize() > 0) newClientId = dsTaiKhoan.getTail()->data->getId() + 1;
-            
-            // Cập nhật tham số theo cấu trúc Client mới: id, username, password, soDu, status
             cUser = new Client(newClientId, phone, pass, 0, 1);
             dsTaiKhoan.addTail(cUser);
         }
-
-        if (selectedBookingId != -1) { 
+        DatLich* existingBooking = nullptr;
+        if (selectedBookingId != -1) {
             for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
-                if (node->data->getId() == selectedBookingId) {
-                    node->data->updateLich(idMay, date, gio, phut, thoiLuong); // Lưu ý: thay popInp3 bằng date
-                    break;
-                }
+                if (node->data->getId() == selectedBookingId) { existingBooking = node->data; break; }
             }
+        }
+        if (existingBooking != nullptr) {
+            if (existingBooking->getTrangThai() == 2) return -11; 
+            if (existingBooking->getTrangThai() == 1) {
+                if (idMay != existingBooking->getIdMay() || date != existingBooking->getNgayDat() || gio != existingBooking->getGioBatDau() || phut != existingBooking->getPhutBatDau()) return -10; 
+                if (thoiLuong <= 0) return -7;
+                if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+                double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
+                if (extraTien > 0) {
+                    if (cUser->getSoDu() + extraTien > 10000000) return -12;
+                    cUser->napTien(extraTien);
+                }
+                existingBooking->updateLich(existingBooking->getIdMay(), existingBooking->getNgayDat(), existingBooking->getGioBatDau(), existingBooking->getPhutBatDau(), thoiLuong);
+                return 1; 
+            }
+        }
+        if (m < 1 || m > 12) return -5;
+        int maxDays = 31;
+        if (m == 4 || m == 6 || m == 9 || m == 11) maxDays = 30;
+        else if (m == 2) maxDays = ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) ? 29 : 28;
+        if (d < 1 || d > maxDays) return -5;
+
+        if (gio < 7 || gio >= 22) return -9; 
+        if (phut < 0 || phut > 59 || thoiLuong <= 0) return -7;
+        if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+        
+        if (idMay < 31 || idMay > 40) return -4; 
+
+        int bookTotalDays = y * 365 + d;
+        int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+        if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) mDays[2] = 29;
+        for(int i = 1; i < m; i++) bookTotalDays += mDays[i];
+
+        if (bookTotalDays < currentTotalDays + 1 || bookTotalDays > currentTotalDays + 7) return -6;
+
+        if (existingBooking != nullptr) {
+            existingBooking->updateLich(idMay, date, gio, phut, thoiLuong); 
         } else { 
             double tienNap = (thoiLuong / 60.0) * 20000.0;
+            if (cUser->getSoDu() + tienNap > 10000000) return -12;
             cUser->napTien(tienNap);
-
             int newId = 1;
             if (dsDatLich.getSize() > 0) newId = dsDatLich.getTail()->data->getId() + 1;
-            dsDatLich.addTail(new DatLich(newId, phone, idMay, date, gio, phut, thoiLuong, 0)); // Lưu ý: thay popInp1 bằng phone, popInp3 bằng date
+            dsDatLich.addTail(new DatLich(newId, phone, idMay, date, gio, phut, thoiLuong, 0)); 
         }
-        // ----- KẾT THÚC ĐOẠN CODE CỦA BẠN -----
-
-        return 1; // Đặt lịch thành công
-    } catch (...) {
-        return 0; // Lỗi ép kiểu do nhập chữ
-    }
+        return 1; 
+    } catch (...) { return 0; }
 }

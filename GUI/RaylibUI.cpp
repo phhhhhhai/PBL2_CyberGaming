@@ -76,10 +76,6 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         drawTab({580, 0, 180, 50}, "4. ORDER", currentTab == 3);
         drawTab({770, 0, 180, 50}, "5. BOOKING", currentTab == 4); 
 
-        DrawTextEx(font, clockStr.c_str(), {970, 15}, 20, 1, WHITE);
-        DrawRectangle(1180, 10, 130, 30, ORANGE); 
-        DrawTextEx(font, "CHỈNH GIỜ", {1195, 15}, 18, 1, WHITE);
-
         DrawTextEx(font, "HAPPY HOUR (-30%):", {1340, 15}, 18, 1, WHITE);
         if (isHappyHourActive) {
             DrawRectangle(1530, 10, 70, 30, GREEN); DrawTextEx(font, "BẬT", {1545, 15}, 18, 1, WHITE);
@@ -101,6 +97,9 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         drawTab({240, 0, 220, 50}, "2. DỊCH VỤ F&B", currentTab == 1);
         drawTab({470, 0, 220, 50}, "3. CÀI ĐẶT", currentTab == 2);
     }
+    DrawTextEx(font, clockStr.c_str(), {970, 15}, 20, 1, WHITE);
+    DrawRectangle(1180, 10, 130, 30, ORANGE); 
+    DrawTextEx(font, "CHỈNH GIỜ", {1195, 15}, 18, 1, WHITE);
 
     DrawRectangle(1750, 5, 150, 40, RED);
     DrawTextEx(font, "ĐĂNG XUẤT", {1765, 15}, 20, 1, WHITE);
