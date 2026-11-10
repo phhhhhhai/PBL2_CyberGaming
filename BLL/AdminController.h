@@ -49,6 +49,8 @@ public:
 
     std::vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
     std::vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
+    
+    void checkAndProcessBookings(int vDay, int vMonth, int vYear, int vHour, int vMinute);
 };
 
 #endif

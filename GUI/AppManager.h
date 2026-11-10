@@ -61,8 +61,7 @@ private:
     int vHour = 13; int vMinute = 0; int vSecond = 0;
     float virtualTimer = 0.0f;
 
-    void checkAndProcessBookings();
-public:
+    public:
     AppManager();
     ~AppManager();
     void run();

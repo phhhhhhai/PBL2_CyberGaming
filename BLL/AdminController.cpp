@@ -459,3 +459,74 @@ std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int&
     }
     return kickedUsers;
 }
+
+void AdminController::checkAndProcessBookings(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
+    int currentSystemMinutes = vHour * 60 + vMinute;
+    
+    // Tạo chuỗi ngày định dạng DD/MM/YYYY
+    char dateBuf[20];
+    snprintf(dateBuf, sizeof(dateBuf), "%02d/%02d/%d", vDay, vMonth, vYear);
+    string currentDateStr(dateBuf);
+
+    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+        DatLich* b = node->data;
+        if (!b) continue;
+
+        if (b->getNgayDat() != currentDateStr) {
+            continue;
+        }
+
+        int startMin = b->getGioBatDau() * 60 + b->getPhutBatDau();
+        int duration = b->getThoiLuong();
+        int endMin = startMin + duration;
+        int warningMin = startMin - 15;
+
+        int machineId = b->getIdMay();
+        MayTram* targetMay = findMachineById(machineId);
+
+        if (!targetMay) continue;
+
+        string bookedUser = b->getSdtKhach();
+
+        // 1. Cảnh báo trước 15 phút: Nhả máy / Đuổi người đang ngồi sai chỗ
+        if (currentSystemMinutes >= warningMin && currentSystemMinutes < startMin) {
+            User* currentClient = targetMay->getCurrentClient();
+            if (targetMay->getTrangThai() != 0 && (!currentClient || currentClient->getUsername() != bookedUser)) {
+                targetMay->freeMachine();
+                targetMay->setTrangThai(0);
+            }
+        }
+
+        // 2. Trong khung giờ đặt: Đá người dùng ở máy khác (nếu có) và xếp chỗ cho người đặt
+        if (currentSystemMinutes >= startMin && currentSystemMinutes < endMin) {
+            for (int r2 = 0; r2 < ROWS; r2++) {
+                for (int c2 = 0; c2 < COLS; c2++) {
+                    User* clientAtOther = grid[r2][c2]->getCurrentClient();
+                    if (clientAtOther && clientAtOther->getUsername() == bookedUser && grid[r2][c2]->getId() != machineId) {
+                        grid[r2][c2]->freeMachine();
+                        grid[r2][c2]->setTrangThai(2);
+                    }
+                }
+            }
+
+            User* currentClient = targetMay->getCurrentClient();
+            if (!currentClient || currentClient->getUsername() != bookedUser) {
+                if (targetMay->getTrangThai() != 0) {
+                    targetMay->freeMachine();
+                }
+                assignSeat(bookedUser, machineId);
+            }
+
+            targetMay->setTrangThai(3);
+            FileManager::saveGrid("Data/MayTram.txt", grid);
+        }
+
+        // 3. Kết thúc thời gian đặt: Trả máy
+        if (currentSystemMinutes >= endMin) {
+            User* currentClient = targetMay->getCurrentClient();
+            if (currentClient && currentClient->getUsername() == bookedUser) {
+                targetMay->freeMachine();
+            }
+        }
+    }
+}

@@ -34,84 +34,6 @@ AppManager::~AppManager() {
     delete clientCtrl;
 }
 
-void AppManager::checkAndProcessBookings() {
-    int currentSystemMinutes = vHour * 60 + vMinute;
-    string currentDateStr = TextFormat("%02d/%02d/%d", vDay, vMonth, vYear);
-
-    for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
-        DatLich* b = node->data;
-        if (!b) continue;
-
-        if (b->getNgayDat() != currentDateStr) {
-            continue;
-        }
-
-        int startMin = b->getGioBatDau() * 60 + b->getPhutBatDau();
-        int duration = b->getThoiLuong();
-        int endMin = startMin + duration;
-        int warningMin = startMin - 15;
-
-        int machineId = b->getIdMay();
-        MayTram* targetMay = nullptr;
-        int targetR = -1, targetC = -1;
-        for (int r = 0; r < ROWS; r++) {
-            for (int c = 0; c < COLS; c++) {
-                if (grid[r][c]->getId() == machineId) {
-                    targetMay = grid[r][c];
-                    targetR = r;
-                    targetC = c;
-                    break;
-                }
-            }
-            if (targetMay) break;
-        }
-
-        if (!targetMay) continue;
-
-        string bookedUser = b->getSdtKhach();
-
-        if (currentSystemMinutes >= warningMin && currentSystemMinutes < startMin) {
-            User* currentClient = targetMay->getCurrentClient();
-            if (targetMay->getTrangThai() != 0 && (!currentClient || currentClient->getUsername() != bookedUser)) {
-                targetMay->freeMachine();
-                targetMay->setTrangThai(0);
-            }
-        }
-
-        if (currentSystemMinutes >= startMin && currentSystemMinutes < endMin) {
-            for (int r2 = 0; r2 < ROWS; r2++) {
-                for (int c2 = 0; c2 < COLS; c2++) {
-                    User* clientAtOther = grid[r2][c2]->getCurrentClient();
-                    if (clientAtOther && clientAtOther->getUsername() == bookedUser && grid[r2][c2]->getId() != machineId) {
-                        grid[r2][c2]->freeMachine();
-                        grid[r2][c2]->setTrangThai(2);
-                    }
-                }
-            }
-
-            User* currentClient = targetMay->getCurrentClient();
-            if (!currentClient || currentClient->getUsername() != bookedUser) {
-                if (targetMay->getTrangThai() != 0) {
-                    targetMay->freeMachine();
-                }
-                adminCtrl->assignSeat(bookedUser, machineId);
-            }
-
-            if (targetR != -1 && targetC != -1) {
-                grid[targetR][targetC]->setTrangThai(3);
-            }
-            FileManager::saveGrid("Data/MayTram.txt", grid);
-        }
-
-        if (currentSystemMinutes >= endMin) {
-            User* currentClient = targetMay->getCurrentClient();
-            if (currentClient && currentClient->getUsername() == bookedUser) {
-                targetMay->freeMachine();
-            }
-        }
-    }
-}
-
 void AppManager::run() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "He Thong Quan Ly Cyber Gaming"); 
@@ -141,7 +63,8 @@ void AppManager::run() {
             if (vSecond >= 60) { 
                 vSecond = 0;
                 std::vector<string> kickedUsers = adminCtrl->addVirtualMinutes(1, vDay, vMonth, vYear, vHour, vMinute, isHappyHourActive);
-                checkAndProcessBookings();
+                adminCtrl->checkAndProcessBookings(vDay, vMonth, vYear, vHour, vMinute);
+                
                 if (currentUser != nullptr && std::find(kickedUsers.begin(), kickedUsers.end(), currentUser->getUsername()) != kickedUsers.end()) {
                     appState = 0; 
                     currentUser = nullptr; 
