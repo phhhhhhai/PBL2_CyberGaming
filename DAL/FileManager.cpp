@@ -63,23 +63,18 @@ void FileManager::loadGrid(const string& filename, MayTram* grid[ROWS][COLS], Do
 
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            int id, loaiMay, trangThai;
-            string user;
-            // Đọc dữ liệu từ MayTram.txt
-            file >> id >> loaiMay >> trangThai >> user;
+            int id, loaiMay, trangThai, userId; 
+
+            file >> id >> loaiMay >> trangThai >> userId;
             
-            // Cấp phát động đối tượng MayTram
             grid[i][j] = new MayTram(id, loaiMay, trangThai);
-            
-            // Map đối tượng Client thay vì chỉ lưu chuỗi string
-            if (user != "NONE") {
+
+            if (userId != 0) { 
                 for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                    if (p->data->getUsername() == user) {
+                    if (p->data->getId() == userId) { 
                         // Ép kiểu để lấy đúng đối tượng Client
                         Client* c = dynamic_cast<Client*>(p->data);
-                        if (c != nullptr) {
-                            grid[i][j]->assignClient(c);
-                        }
+                        if (c != nullptr) grid[i][j]->assignClient(c);
                         break;
                     }
                 }
@@ -98,11 +93,8 @@ void FileManager::saveGrid(const string& filename, MayTram* grid[ROWS][COLS]) {
                  << grid[i][j]->getTrangThai() << " ";
             
             Client* c = grid[i][j]->getCurrentClient();
-            if (c != nullptr) {
-                file << c->getUsername() << "\n";
-            } else {
-                file << "NONE\n";
-            }
+            if (c != nullptr) file << c->getId() << "\n";
+            else file << "0\n";
         }
     }
     file.close();
