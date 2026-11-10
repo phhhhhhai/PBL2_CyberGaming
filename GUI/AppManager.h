@@ -16,7 +16,7 @@
 #include "../DAL/FileManager.h"
 #include "RaylibUI.h"
 #include <string>
-#include <vector>
+#include "../BLL/Vector.h"
 #include <algorithm>
 
 class AppManager {
@@ -60,6 +60,13 @@ private:
     int vYear = 2026; int vMonth = 10; int vDay = 29;
     int vHour = 13; int vMinute = 0; int vSecond = 0;
     float virtualTimer = 0.0f;
+
+    void updateTimer();                               // Cập nhật giờ và trừ tiền
+    void processLogin(Vector2 mousePoint);            // Xử lý click ở màn hình đăng nhập
+    void processWorkspace(Vector2 mousePoint, bool isAdmin); // Xử lý click chuyển tab/chọn máy
+    void processPopup(Vector2 mousePoint);            // Xử lý click nút Xác nhận/Hủy trong Popup
+    void processKeyboard();                           // Xử lý gõ phím nhập liệu
+    void drawScreen(Font appFont, RenderTexture2D target); // Vẽ giao diện
 public:
     AppManager();
     ~AppManager();

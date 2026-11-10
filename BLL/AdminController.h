@@ -9,7 +9,7 @@
 #include "../Entities/DatLich.h"
 #include "DoublyLinkedList.h"
 #include <string>
-#include <vector>
+#include "../BLL/Vector.h"
 
 using namespace std;
 
@@ -47,8 +47,8 @@ public:
     int validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, 
         int currentTotalDays, int selectedBookingId);
 
-    std::vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
-    std::vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
+    Vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
+    Vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
 };
 
 #endif
