@@ -26,6 +26,7 @@ public:
     bool changePassword(string username, string newPass);
     bool processTick(string username, double deductionAmount);
     void returnMachine(string username); 
+    int validateLogin(string username, string password, int currentHour, User*& loggedInUser);
 };
 
 #endif

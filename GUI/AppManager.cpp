@@ -61,48 +61,45 @@ void AppManager::processLogin(Vector2 mousePoint) {
         else if (CheckCollisionPointRec(mousePoint, passBox)) activeInput = 2;
         else activeInput = 0;
 
-        if (CheckCollisionPointRec(mousePoint, btnLogin)) {
-            bool found = false;
-            for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                if (p->data->getUsername() == inputUser && p->data->getPassword() == inputPass) {
-                    
-                    bool isAdmin = (p->data->getRoleId() == 1); 
-                    if (!isAdmin && (vHour < 7 || vHour >= 22)) {
-                        loginMessage = "Hết giờ hoạt động (22:00 - 07:00)!";
-                        found = true; 
-                        break;
-                    }
-                    if (!isAdmin) {
-                        bool isAssigned = false;
-                        for (int r = 0; r < ROWS; r++) {
-                            for (int c = 0; c < COLS; c++) {
-                                if (grid[r][c]->getCurrentClient() != nullptr && 
-                                    grid[r][c]->getCurrentClient()->getUsername() == inputUser) {
-                                    isAssigned = true; 
-                                    if (grid[r][c]->getTrangThai() == 3) {
-                                        grid[r][c]->setTrangThai(1);
-                                        FileManager::saveGrid("Data/MayTram.txt", grid);
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                        if (!isAssigned) {
-                            loginMessage = "Tai khoan chua duoc xep may!";
-                            found = true; 
-                            break;
-                        }
-                    }
-                    appState = 1; 
-                    currentUser = p->data;
-                    currentTab = 0; 
-                    popupState = 0;
-                    found = true;
+        float listX = 1220; float listY = 470;
+        if (CheckCollisionPointRec(mousePoint, {listX + 390, listY, 40, 40})) loginScroll--;
+        if (CheckCollisionPointRec(mousePoint, {listX + 390, listY + 185, 40, 40})) loginScroll++;
+        if (loginScroll < 0) loginScroll = 0;
+        
+        int totalAcc = dsTaiKhoan.getSize();
+        if (loginScroll > totalAcc - 5 && totalAcc > 5) loginScroll = totalAcc - 5;
+        
+        int count = 0; float itemY = listY;
+        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+            if (count >= loginScroll && count < loginScroll + 5) {
+                if (CheckCollisionPointRec(mousePoint, {listX, itemY, 380, 40})) {
+                    inputUser = p->data->getUsername(); 
+                    activeInput = 2; 
                     loginMessage = ""; 
-                    break;
                 }
+                itemY += 45;
             }
-            if (!found && loginMessage.empty()) loginMessage = "Sai tai khoan hoac mat khau!";
+            count++;
+        }
+
+        if (CheckCollisionPointRec(mousePoint, btnLogin)) {
+            User* tempUser = nullptr;
+            int res = clientCtrl->validateLogin(inputUser, inputPass, vHour, tempUser);
+
+            if (res == 1 || res == 2) {
+                if (res == 2) FileManager::saveGrid("Data/MayTram.txt", grid); 
+                
+                appState = 1; 
+                currentUser = tempUser;
+                currentTab = 0; 
+                popupState = 0;
+                loginMessage = ""; 
+            } 
+            else if (res == -2) loginMessage = "Sai mật khẩu!";
+            else if (res == -3) loginMessage = "Hết giờ hoạt động (22:00 - 07:00)!";
+            else if (res == -4) loginMessage = "Tài khoản hết tiền! Vui lòng nạp thêm.";
+            else if (res == -5) loginMessage = "Tài khoản chưa được xếp máy!";
+            else if (res == -1) loginMessage = "Tài khoản không tồn tại!";
         }
     }
 
@@ -776,7 +773,7 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
     BeginTextureMode(target);
     ClearBackground(RAYWHITE); 
     if (appState == 0) {
-        RaylibUI::drawLoginScreen(appFont, inputUser, inputPass, activeInput, loginMessage);
+        RaylibUI::drawLoginScreen(appFont, inputUser, inputPass, activeInput, loginMessage, dsTaiKhoan, loginScroll);
     } else if (appState == 1) {
         string clockStr = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
         RaylibUI::drawWorkspace(appFont, clockStr, currentTab, grid, dsTaiKhoan, dsMon, ordersQueue, cartList, dsDatLich,

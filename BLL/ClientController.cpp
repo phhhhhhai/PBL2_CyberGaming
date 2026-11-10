@@ -67,3 +67,40 @@ void ClientController::returnMachine(string username) {
     MayTram* m = findMachineByUsername(username);
     if (m) m->freeMachine();
 }
+
+int ClientController::validateLogin(string username, string password, int currentHour, User*& loggedInUser) {
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getUsername() == username) {
+            
+            if (p->data->getPassword() != password) return -2; 
+
+            loggedInUser = p->data;
+            bool isAdmin = (p->data->getRoleId() == 1);
+            if (isAdmin) return 1; 
+
+            // --- LOGIC CHO CLIENT ---
+            if (currentHour < 7 || currentHour >= 22) return -3; 
+            
+            Client* cObj = dynamic_cast<Client*>(p->data);
+            if (cObj != nullptr && cObj->getSoDu() <= 0) return -4; 
+
+            bool isAssigned = false;
+            for (int r = 0; r < ROWS; r++) {
+                for (int c = 0; c < COLS; c++) {
+                    if (grid[r][c]->getCurrentClient() != nullptr && 
+                        grid[r][c]->getCurrentClient()->getUsername() == username) {
+                        isAssigned = true; 
+                        
+                        if (grid[r][c]->getTrangThai() == 3) {
+                            grid[r][c]->setTrangThai(1);
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!isAssigned) return -5; 
+            return 2;
+        }
+    }
+    return -1; 
+}

@@ -54,6 +54,7 @@ private:
     int activePopInp = 1;
     string popMsg = "";
     int assignScroll = 0; 
+    int loginScroll = 0;
     bool isHappyHourActive = false; 
     float secondCounter;
     

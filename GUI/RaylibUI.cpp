@@ -9,7 +9,7 @@ int RaylibUI::targetMachineId = -1;
 string RaylibUI::moveNotificationMsg = "";
 float RaylibUI::moveNotificationTimer = 0.0f;
 
-void RaylibUI::drawLoginScreen(Font font, string inputUser, string inputPass, int activeInput, string loginMessage) {
+void RaylibUI::drawLoginScreen(Font font, string inputUser, string inputPass, int activeInput, string loginMessage, DoublyLinkedList<User*>& dsTK, int loginScroll) {
     DrawTextEx(font, "CYBER GAMING - HỆ THỐNG QUẢN LÝ", {680, 350}, 35, 1, DARKBLUE);
     
     DrawTextEx(font, "Tên đăng nhập (SĐT):", {750, 430}, 25, 1, DARKGRAY);
@@ -35,15 +35,33 @@ void RaylibUI::drawLoginScreen(Font font, string inputUser, string inputPass, in
         DrawTextEx(font, "_", {765 + textWidth, cursorY}, 25, 1, BLACK);
     }
     
-    Vector2 mousePoint = GetMousePosition();
     Rectangle btnLogin = {850, 680, 200, 60};
-    if (CheckCollisionPointRec(mousePoint, btnLogin)) DrawRectangleRec(btnLogin, DARKBLUE);
-    else DrawRectangleRec(btnLogin, BLUE);
-    
+    DrawRectangleRec(btnLogin, CheckCollisionPointRec(GetMousePosition(), btnLogin) ? DARKBLUE : BLUE);
     DrawTextEx(font, "ĐĂNG NHẬP", {875, 695}, 25, 1, WHITE);
 
     if (!loginMessage.empty()) {
         DrawTextEx(font, loginMessage.c_str(), {750, 640}, 22, 1, RED);
+    }
+
+    float listX = 1220; float listY = 470;
+    DrawTextEx(font, "CHỌN NHANH TÀI KHOẢN", {listX, listY - 40}, 25, 1, DARKGREEN);
+    DrawRectangle(listX + 390, listY, 40, 40, GRAY); DrawTextEx(font, "/\\", {listX + 400, listY + 10}, 20, 1, WHITE);
+    DrawRectangle(listX + 390, listY + 185, 40, 40, GRAY); DrawTextEx(font, "\\/", {listX + 400, listY + 195}, 20, 1, WHITE);
+    
+    int count = 0; float itemY = listY;
+    for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
+        if (count >= loginScroll && count < loginScroll + 5) {
+            Rectangle itemRec = {listX, itemY, 380, 40};
+            bool isSelected = (inputUser == p->data->getUsername());
+            DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
+            DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
+            
+            string roleStr = (p->data->getRoleId() == 1) ? "ADMIN" : "CLIENT";
+            string displayStr = p->data->getUsername() + " - " + roleStr;
+            DrawTextEx(font, displayStr.c_str(), {listX + 20, itemY + 10}, 22, 1, BLACK);
+            itemY += 45;
+        }
+        count++;
     }
 }
 

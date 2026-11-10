@@ -6,8 +6,8 @@ using namespace std;
 
 class CartItem {
 private:
-    int foodId;     // Lưu Khóa ngoại thay vì tên món
-    string tenMon;  // Lưu tạm tên và giá để in ra giao diện cho nhanh
+    int foodId;    
+    string tenMon;  
     double donGia;
     int soLuong;
 

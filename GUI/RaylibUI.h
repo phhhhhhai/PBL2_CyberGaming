@@ -24,7 +24,7 @@ public:
     static string moveNotificationMsg;      // Thông báo lỗi (ví dụ: "Đã có khách, không chọn được")
     static float moveNotificationTimer;     // Thời gian hiển thị thông báo
 
-    static void drawLoginScreen(Font font, string inputUser, string inputPass, int activeInput, string loginMessage);
+    static void drawLoginScreen(Font font, string inputUser, string inputPass, int activeInput, string loginMessage, DoublyLinkedList<User*>& dsTK, int loginScroll);
     static void drawWorkspace(Font font, string clockStr, int currentTab, MayTram* grid[ROWS][COLS], 
         DoublyLinkedList<User*>& dsTK, DoublyLinkedList<MonAn*>& dsMon, Queue<Order*>& ordersQueue, 
         DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
