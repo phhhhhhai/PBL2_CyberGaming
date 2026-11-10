@@ -566,8 +566,8 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawRectangle(970, 600, 150, 45, DARKBLUE); DrawTextEx(font, "XÁC NHẬN", {985, 610}, 22, 1, WHITE);
         }
         else if (popupState == 10) {
-            DrawRectangle(700, 250, 520, 300, RAYWHITE);
-            DrawRectangleLines(700, 250, 520, 300, DARKBLUE);
+            DrawRectangle(700, 250, 520, 330, RAYWHITE);
+            DrawRectangleLines(700, 250, 520, 330, DARKBLUE);
             DrawTextEx(font, TextFormat("BẢNG ĐIỀU KHIỂN MÁY %d", selectedMachine), {800, 280}, 28, 1, DARKBLUE);
 
             string sUser = ""; double sSoDu = 0; int sStatus = 0; int sLoai = 0;
@@ -588,6 +588,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             
             DrawRectangle(750, 480, 200, 45, GOLD); DrawTextEx(font, "ĐỔI MÁY", {800, 492}, 22, 1, BLACK);
             DrawRectangle(980, 480, 150, 45, GRAY); DrawTextEx(font, "ĐÓNG", {1025, 492}, 22, 1, WHITE);
+            if (!pMsg.empty()) DrawTextEx(font, pMsg.c_str(), {750, 540}, 20, 1, RED);
         }
         else if (popupState == 15) {
             DrawRectangle(700, 350, 520, 250, RAYWHITE);

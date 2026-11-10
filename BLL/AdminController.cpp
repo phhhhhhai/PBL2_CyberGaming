@@ -234,6 +234,27 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         int d = stoi(date.substr(0, 2)), m = stoi(date.substr(3, 2)), y = stoi(date.substr(6, 4));
         int idMay = stoi(idMayStr), gio = stoi(hStr), phut = stoi(mStr), thoiLuong = stoi(durationStr);
         
+        if (thoiLuong < 60) return -14; 
+        if (phut < 0 || phut > 59) return -7;
+
+        int newStart = gio * 60 + phut;
+        int newEnd = newStart + thoiLuong;
+        
+        for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+            DatLich* b = node->data;
+            if (b->getId() != selectedBookingId && b->getTrangThai() != 2) {
+                // Check cùng máy và cùng ngày
+                if (b->getIdMay() == idMay && b->getNgayDat() == date) {
+                    int bStart = b->getGioBatDau() * 60 + b->getPhutBatDau();
+                    int bEnd = bStart + b->getThoiLuong();
+                    // trùng khoảng thời gian
+                    if (newStart < bEnd && newEnd > bStart) {
+                        return -15; 
+                    }
+                }
+            }
+        }
+
         User* targetUser = findUserByPhone(phone);
         if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
@@ -256,7 +277,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
             if (existingBooking->getTrangThai() == 2) return -11; 
             if (existingBooking->getTrangThai() == 1) {
                 if (idMay != existingBooking->getIdMay() || date != existingBooking->getNgayDat() || gio != existingBooking->getGioBatDau() || phut != existingBooking->getPhutBatDau()) return -10; 
-                if (thoiLuong <= 0) return -7;
                 if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
                 double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
                 if (extraTien > 0) {
@@ -275,7 +295,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (d < 1 || d > maxDays) return -5;
 
         if (gio < 7 || gio >= 22) return -9; 
-        if (phut < 0 || phut > 59 || thoiLuong <= 0) return -7;
         if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
         if (idMay < 31 || idMay > 40) return -4; 
 

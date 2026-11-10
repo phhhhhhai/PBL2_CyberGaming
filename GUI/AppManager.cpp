@@ -618,6 +618,8 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 else if (res == -11) popMsg = "Don da ket thuc, khong the sua!";
                 else if (res == -12) popMsg = "Tien nap tu Booking vuot muc so du 10tr!";
                 else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
+                else if (res == -14) popMsg = "Thời lượng chơi tối thiểu 60 phút!"; 
+                else if (res == -15) popMsg = "Trùng lịch! Khung giờ này máy đã được đặt.";
                 else popMsg = "Thong tin loi hoac khong hop le!";
             }
         }
