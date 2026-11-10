@@ -303,7 +303,8 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
 std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
     std::vector<string> kickedUsers;
     int currMinsTotal = vHour * 60 + vMinute;
-    // Tính tổng số ngày hiện tại của hệ thống 
+    
+    // Tính tổng số ngày hiện tại của hệ thống để so sánh với ngày đặt lịch
     int currentTotalDays = vYear * 365 + vDay;
     int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
     if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
@@ -312,6 +313,8 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
         MayTram* m = findMachineById(b->getIdMay()); 
+        if (!m) continue;
+
         // Tính tổng số ngày của đơn đặt lịch
         string dateStr = b->getNgayDat();
         int bD = 0, bM = 0, bY = 0;
@@ -324,13 +327,14 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
         int bMDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
         if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
         for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];
-        // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn) -> Ép văng khách, kết thúc đơn
+        
+        // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn)
         if (bookTotalDays < currentTotalDays) {
             if (b->getTrangThai() != 2) {
-                if (m != nullptr && m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
                     kickedUsers.push_back(b->getSdtKhach());
                     m->freeMachine(); 
-                    m->setTrangThai(2); 
+                    m->setTrangThai(0); 
                 }
                 b->setTrangThai(2);
             }
@@ -338,24 +342,35 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
         // 2. XỬ LÝ ĐƠN TRONG NGÀY HÔM NAY 
         else if (bookTotalDays == currentTotalDays) {
             int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
-            if (!m) continue;
             
+            // TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
             if (currMinsTotal < bookMins) {
                 b->setTrangThai(0); 
                 if (currMinsTotal >= bookMins - 15) {
-                    if (m->getTrangThai() == 1 && (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
-                        m->setTrangThai(4); 
+                    // Chuyển ghế sang trạng thái ĐANG DỌN DẸP (2) để nhân viên biết.
+                    if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        
+                        if (m->getCurrentClient() != nullptr) {
+                            kickedUsers.push_back(m->getCurrentClient()->getUsername());
+                        }
                         m->freeMachine(); 
-                    } else if (m->getTrangThai() == 0 || m->getTrangThai() == 2) {
+                        m->setTrangThai(2); 
+                    } 
+                    // Nếu máy đã dọn xong (0), thì Khóa giữ chỗ (4)
+                    else if (m->getTrangThai() == 0) {
                         m->setTrangThai(4); 
                     }
                 }
             }
+            // TRONG GIỜ ĐẶT
             else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
                 b->setTrangThai(1); 
                 Client* cUser = findClientByPhone(b->getSdtKhach()); 
                 if (cUser != nullptr) {
-                    if (m->getTrangThai() == 1 && (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                    if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        if (m->getCurrentClient() != nullptr) kickedUsers.push_back(m->getCurrentClient()->getUsername());
                         m->freeMachine();
                         m->setTrangThai(2); 
                     }
@@ -363,13 +378,14 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
                         MayTram* oldM = findMachineByUsername(cUser->getUsername()); 
                         if (oldM && oldM->getId() != m->getId()) {
                             oldM->freeMachine();
-                            oldM->setTrangThai(2);
+                            oldM->setTrangThai(0);
                         }
                         m->assignClient(cUser);
                         m->setTrangThai(1); 
                     }
                 }
             }
+            // HẾT GIỜ ĐẶT LỊCH
             else {
                 if (b->getTrangThai() == 1) { 
                     if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
@@ -388,7 +404,8 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
 std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive) {
     std::vector<string> kickedUsers;
     int skipSeconds = mins * 60;    
-    // Xử lý trừ tiền
+    
+    // 1. Xử lý trừ tiền khách đang chơi
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
@@ -407,7 +424,8 @@ std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int&
             }
         }
     }
-    // Tính toán thời gian
+    
+    // 2. Tính toán đồng hồ
     if (mins > 0) {
         vMinute += mins;
         while (vMinute >= 60) { vMinute -= 60; vHour++; }
@@ -434,19 +452,22 @@ std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int&
             } 
         }
     }
-    // Xử lý đá khách khi quá 22:00
-    if (vHour < 7 || vHour >= 22) {
+    
+    // Sẽ dọn sạch mọi ghế về trạng thái TRỐNG (0).
+    if (vHour < 7 || vHour >= 22 || mins >= 1440) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-                if (grid[r][c]->getCurrentClient() != nullptr) {
-                    kickedUsers.push_back(grid[r][c]->getCurrentClient()->getUsername()); 
-                    grid[r][c]->freeMachine();
-                    grid[r][c]->setTrangThai(2);
+                if (grid[r][c]->getTrangThai() != 0) { 
+                    if (grid[r][c]->getCurrentClient() != nullptr) {
+                        kickedUsers.push_back(grid[r][c]->getCurrentClient()->getUsername()); 
+                        grid[r][c]->freeMachine();
+                    }
+                    grid[r][c]->setTrangThai(0); 
                 }
             }
         }
     }
-    // Đồng bộ Booking Logic
+    
     std::vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
     for (const string& u : bookingKicked) {
         if (std::find(kickedUsers.begin(), kickedUsers.end(), u) == kickedUsers.end()) {
