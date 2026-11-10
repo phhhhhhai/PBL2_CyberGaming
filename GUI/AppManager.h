@@ -60,6 +60,8 @@ private:
     int vYear = 2026; int vMonth = 10; int vDay = 29;
     int vHour = 13; int vMinute = 0; int vSecond = 0;
     float virtualTimer = 0.0f;
+
+    void checkAndProcessBookings();
 public:
     AppManager();
     ~AppManager();
