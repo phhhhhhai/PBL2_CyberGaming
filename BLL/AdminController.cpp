@@ -300,8 +300,8 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
     } catch (...) { return 0; }
 }
 
-std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
-    std::vector<string> kickedUsers;
+Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute) {
+    Vector<string> kickedUsers;
     int currMinsTotal = vHour * 60 + vMinute;
     
     // Tính tổng số ngày hiện tại của hệ thống để so sánh với ngày đặt lịch
@@ -401,8 +401,8 @@ std::vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, i
     return kickedUsers;
 }
 
-std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive) {
-    std::vector<string> kickedUsers;
+Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive) {
+    Vector<string> kickedUsers;
     int skipSeconds = mins * 60;    
     
     // 1. Xử lý trừ tiền khách đang chơi
@@ -468,10 +468,10 @@ std::vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int&
         }
     }
     
-    std::vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
-    for (const string& u : bookingKicked) {
-        if (std::find(kickedUsers.begin(), kickedUsers.end(), u) == kickedUsers.end()) {
-            kickedUsers.push_back(u);
+    Vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
+    for (int i = 0; i < bookingKicked.size(); i++) {
+        if (!kickedUsers.contains(bookingKicked[i])) { // Gọi hàm contains thay cho std::find dài ngoằng
+            kickedUsers.push_back(bookingKicked[i]);
         }
     }
     if (mins > 0 || (vHour < 7 || vHour >= 22)) {
