@@ -248,44 +248,47 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         }
                     }
                     else if (currentTab == 3) {
-                        float startY = 250;
-                        float tableX = 160;
+                        struct BillClickInfo { int userId; string thoiGian; };
+                        Vector<BillClickInfo> bills;
+                        
                         for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
-                            Rectangle btnPay = {tableX + 1070, startY - 5, 100, 30};
-                            Rectangle btnStatus = {tableX + 1240, startY - 5, 110, 30};
-                            Rectangle btnEdit = {tableX + 1410, startY - 5, 75, 30};
-                            Rectangle btnDel = {tableX + 1495, startY - 5, 75, 30};
+                            bool found = false;
+                            for(int k = 0; k < bills.size(); k++){
+                                if(bills[k].userId == p->data->getUserId() && bills[k].thoiGian == p->data->getThoiGian()) { found = true; break; }
+                            }
+                            if(!found) {
+                                BillClickInfo b = {p->data->getUserId(), p->data->getThoiGian()};
+                                bills.push_back(b);
+                            }
+                        }
 
-                            if (CheckCollisionPointRec(mousePoint, btnPay)) {
-                                p->data->setPaid(1 - p->data->getPaid());
+                        float startY = 250; 
+                        float tableX = 160;
+                        for (int i = 0; i < bills.size(); i++) {
+                            Rectangle btnStatus = {tableX + 1140, startY - 5, 110, 30};
+                            Rectangle btnDetail = {tableX + 1380, startY - 5, 100, 30};
+                            Rectangle btnDel = {tableX + 1500, startY - 5, 75, 30};
+
+                            if (CheckCollisionPointRec(mousePoint, btnStatus)) {
+                                adminCtrl->giaoHangBill(ordersQueue, bills[i].userId, bills[i].thoiGian);
                                 FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                                break;
                             }
-                            else if (CheckCollisionPointRec(mousePoint, btnStatus)) {
-                                p->data->setStatus(1 - p->data->getStatus());
-                                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
-                            }
-                            else if (CheckCollisionPointRec(mousePoint, btnEdit)) {
-                                selectedOrderId = p->data->getId();
-                                popupState = 13; popInp1 = std::to_string(p->data->getSoLuong()); popMsg = ""; activePopInp = 1;
+                            else if (CheckCollisionPointRec(mousePoint, btnDetail)) {
+                                string uName = "";
+                                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                                    if (u->data->getId() == bills[i].userId) { uName = u->data->getUsername(); break; }
+                                }
+                                selectedBillTime = bills[i].thoiGian; 
+                                selectedAccountUsername = uName;
+                                popupState = 12;
+                                break;
                             }
                             else if (CheckCollisionPointRec(mousePoint, btnDel)) {
-                                int targetOrderId = p->data->getId();
-                                Queue<Order*> tempQueue;
-                                
-                                while (!ordersQueue.isEmpty()) {
-                                    Order* ord = ordersQueue.dequeue();
-                                    if (ord->getId() != targetOrderId) {
-                                        tempQueue.enqueue(ord);
-                                    } else {
-                                        delete ord; 
-                                    }
-                                }
-                                
-                                while (!tempQueue.isEmpty()) {
-                                    ordersQueue.enqueue(tempQueue.dequeue());
-                                }
-                                
-                                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                                int res = adminCtrl->deleteBill(ordersQueue, bills[i].userId, bills[i].thoiGian);
+                                if (res == -1) popMsg = "Bill đã thanh toán, không thể xóa!";
+                                else if (res == -2) popMsg = "Bill đã được giao, không thể xóa!";
+                                else FileManager::saveOrders("Data/Orders.txt", ordersQueue);
                                 break;
                             }
                             startY += 45;
@@ -536,7 +539,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 for (int i = 0; i < bills.size(); i++) {
                     if (CheckCollisionPointRec(mousePoint, {1150, bY, 80, 30})) { 
                         selectedBillTime = bills[i];
-                        popupState = (popupState == 11) ? 12 : 22; 
+                        popupState = (popupState == 11) ? 23 : 22; 
                         break;
                     }
                     bY += 45;
@@ -544,23 +547,61 @@ void AppManager::processPopup(Vector2 mousePoint) {
             }
         }
         else if (popupState == 12) { 
-            if (CheckCollisionPointRec(mousePoint, {700, 780, 150, 50})) popupState = 11; 
-            else if (CheckCollisionPointRec(mousePoint, {950, 780, 200, 50})) { 
+            if (CheckCollisionPointRec(mousePoint, {600, 780, 150, 50})) { 
+                popupState = 0; 
+                selectedOrderId = -1; 
+                popMsg = ""; 
+            }
+            else if (CheckCollisionPointRec(mousePoint, {800, 780, 200, 50})) {
                 int tId = -1;
                 for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
                     if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
                 }
+                adminCtrl->giaoHangBill(ordersQueue, tId, selectedBillTime);
+                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+            }
+            else if (CheckCollisionPointRec(mousePoint, {1050, 780, 200, 50})) { 
+                int tId = -1;
+                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
+                }
+                adminCtrl->thanhToanBill(ordersQueue, tId, selectedBillTime);
+                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+            }
+            else {
+                int tId = -1;
+                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
+                }
+                float cY = 340;
                 for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                     if (o->data->getUserId() == tId && o->data->getThoiGian() == selectedBillTime) {
-                        o->data->setPaid(1); 
+                        Rectangle btnEdit = {1180, cY - 5, 60, 30};
+                        Rectangle btnDel = {1250, cY - 5, 60, 30};
+                        
+                        if (CheckCollisionPointRec(mousePoint, btnEdit)) {
+                            selectedOrderId = o->data->getId();
+                            popupState = 13; 
+                            popInp1 = std::to_string(o->data->getSoLuong()); 
+                            popMsg = ""; activePopInp = 1;
+                            break;
+                        }
+                        if (CheckCollisionPointRec(mousePoint, btnDel)) {
+                            int res = adminCtrl->deleteOrder(ordersQueue, o->data->getId());
+                            if (res == -1) popMsg = "Món đã thanh toán, không thể xóa!";
+                            else if (res == -2) popMsg = "Món đã giao, không thể xóa!";
+                            else FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                            break;
+                        }
+                        cY += 45;
                     }
                 }
-                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
-                popupState = 11; 
             }
         }
-        else if (popupState == 22) { 
-            if (CheckCollisionPointRec(mousePoint, {870, 780, 150, 50})) popupState = 21; 
+        else if (popupState == 22 || popupState == 23) { 
+            if (CheckCollisionPointRec(mousePoint, {870, 780, 150, 50})) {
+                popupState = (popupState == 23) ? 11 : 21; 
+            }
         }
         else if (popupState == 13) {
             Rectangle btnHuy13 = {800, 600, 150, 45};
@@ -570,20 +611,19 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 popupState = 0; selectedOrderId = -1;
             }
             else if (CheckCollisionPointRec(mousePoint, btnXN13)) {
-                if (popInp1.empty()) popMsg = "Vui long nhap so luong!";
+                if (popInp1.empty()) popMsg = "Vui lòng nhập số lượng!";
                 else {
                     int newQty = 1; 
                     try { newQty = std::stoi(popInp1); } catch(...) { newQty = 1; }
                     if (newQty <= 0) newQty = 1;
-
-                    for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
-                        if (p->data->getId() == selectedOrderId) {
-                            p->data->setSoLuong(newQty);
-                            FileManager::saveOrders("Data/Orders.txt", ordersQueue);
-                            break;
-                        }
+                    int res = adminCtrl->updateOrderQuantity(ordersQueue, selectedOrderId, newQty);
+                    if (res == -1) popMsg = "Đã thanh toán, không thể sửa!";
+                    else if (res == -2) popMsg = "Đã giao hàng, không thể sửa!";
+                    else {
+                        FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                        popupState = 12; 
+                        selectedOrderId = -1;
                     }
-                    popupState = 0; selectedOrderId = -1;
                 }
             }
         }
@@ -778,10 +818,9 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
         string clockStr = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
         RaylibUI::drawWorkspace(appFont, clockStr, currentTab, grid, dsTaiKhoan, dsMon, ordersQueue, cartList, dsDatLich,
             currentUser, popupState, activePopInp, 
-            (popupState == 12 || popupState == 22) ? selectedBillTime : popInp1, 
-            (popupState == 11 || popupState == 12) ? selectedAccountUsername : popInp2, 
-            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, 
-            assignScroll, selectedMachine, isHappyHourActive);
+            (popupState == 12 || popupState == 22 || popupState == 23) ? selectedBillTime : popInp1, 
+            (popupState == 11 || popupState == 12 || popupState == 23) ? selectedAccountUsername : popInp2, 
+            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive);
     }
     EndTextureMode();
 

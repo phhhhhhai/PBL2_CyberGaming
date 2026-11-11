@@ -10,6 +10,7 @@
 #include "../Entities/DatLich.h"
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Queue.h"
+#include "../BLL/Vector.h"
 #include <string>
 
 using namespace std;

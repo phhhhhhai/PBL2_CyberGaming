@@ -499,3 +499,81 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     }
     return kickedUsers;
 }
+
+void AdminController::thanhToanBill(Queue<Order*>& q, int userId, string thoiGian) {
+    bool allPaid = true;
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            if (p->data->getPaid() == 0) allPaid = false;
+        }
+    }
+    int newState = allPaid ? 0 : 1; 
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            p->data->setPaid(newState);
+        }
+    }
+}
+
+void AdminController::giaoHangBill(Queue<Order*>& q, int userId, string thoiGian) {
+    bool allDelivered = true;
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            if (p->data->getStatus() == 0) allDelivered = false;
+        }
+    }
+    int newState = allDelivered ? 0 : 1; 
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            p->data->setStatus(newState);
+        }
+    }
+}
+
+int AdminController::deleteBill(Queue<Order*>& q, int userId, string thoiGian) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            if (p->data->getPaid() == 1) return -1; 
+            if (p->data->getStatus() == 1) return -2;
+        }
+    }
+    Queue<Order*> temp;
+    while (!q.isEmpty()) {
+        Order* o = q.dequeue();
+        if (o->getUserId() == userId && o->getThoiGian() == thoiGian) { delete o; } 
+        else { temp.enqueue(o); }
+    }
+    while (!temp.isEmpty()) q.enqueue(temp.dequeue());
+    return 1;
+}
+
+int AdminController::updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getId() == orderId) {
+            if (p->data->getPaid() == 1) return -1; 
+            if (p->data->getStatus() == 1) return -2;
+            p->data->setSoLuong(newQty);
+            return 1;
+        }
+    }
+    return 0; 
+}
+
+int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getId() == orderId) {
+            if (p->data->getPaid() == 1) return -1;
+            if (p->data->getStatus() == 1) return -2;
+        }
+    }
+    // xóa an toàn
+    Queue<Order*> temp;
+    bool found = false;
+    while (!q.isEmpty()) {
+        Order* o = q.dequeue();
+        if (o->getId() == orderId) { delete o; found = true; }
+        else { temp.enqueue(o); }
+    }
+    while (!temp.isEmpty()) q.enqueue(temp.dequeue());
+    return found ? 1 : 0;
+}

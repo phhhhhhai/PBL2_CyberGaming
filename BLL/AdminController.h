@@ -7,9 +7,11 @@
 #include "../Entities/MonAn.h"
 #include "../Entities/MayTram.h"
 #include "../Entities/DatLich.h"
-#include "DoublyLinkedList.h"
-#include <string>
+#include "../Entities/Order.h"
+#include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Vector.h"
+#include "../BLL/Queue.h"                 
+#include <string>
 
 using namespace std;
 
@@ -49,6 +51,13 @@ public:
 
     Vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
     Vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
+
+    void thanhToanBill(Queue<Order*>& q, int userId, string thoiGian);
+    void giaoHangBill(Queue<Order*>& q, int userId, string thoiGian);
+    int deleteBill(Queue<Order*>& q, int userId, string thoiGian);
+
+    int updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty);
+    int deleteOrder(Queue<Order*>& q, int orderId);
 };
 
 #endif
