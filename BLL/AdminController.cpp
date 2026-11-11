@@ -59,7 +59,7 @@ bool AdminController::isDuplicateUser(string phone) {
     return findUserByPhone(phone) != nullptr;
 }
 
-int AdminController::addTaiKhoan(string phone, string pass, double initialBalance) {
+int AdminController::addTaiKhoan(string phone, string pass, double initialBalance, string thoiGianLog) {
     if (!isValidPhoneNumber(phone)) return -1; 
     if (initialBalance < 10000) return -3; 
     if (initialBalance > 10000000) return -4; 
@@ -68,16 +68,29 @@ int AdminController::addTaiKhoan(string phone, string pass, double initialBalanc
     int newId = 1;
     if (dsTaiKhoan.getSize() > 0) newId = dsTaiKhoan.getTail()->data->getId() + 1;
     dsTaiKhoan.addTail(new Client(newId, phone, pass, initialBalance));
+    if (!thoiGianLog.empty()) {
+        FileManager::logDoanhThu(thoiGianLog, "NAP", newId, "Nap_Tien_Tao_Tai_Khoan", 1, initialBalance);
+    }
     return 1;
 }
 
-bool AdminController::napTien(string username, double amount) {
+bool AdminController::napTien(string username, double amount, string thoiGianLog) {
     if (amount <= 0 || amount > 5000000) return false; 
-    Client* c = findClientByPhone(username);
-    if (c) {
-        if (c->getSoDu() + amount > 10000000) return false; 
-        c->napTien(amount);
-        return true;
+    
+    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+        if (u->data->getUsername() == username) {
+            Client* c = dynamic_cast<Client*>(u->data);
+            if (c != nullptr) {
+                if (c->getSoDu() + amount > 10000000) return false; 
+                
+                c->setSoDu(c->getSoDu() + amount);
+                
+                if (!thoiGianLog.empty()) {
+                    FileManager::logDoanhThu(thoiGianLog, "NAP", c->getId(), "Nap_Tien_Truc_Tiep", 1, amount);
+                }
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -242,7 +255,7 @@ bool AdminController::deleteBooking(int bookingId) {
     return false;
 }
 
-int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId) {
+int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId, string thoiGianLog) {
     if (phone.empty() || idMayStr.empty() || date.empty() || hStr.empty() || mStr.empty() || durationStr.empty() || pass.empty()) return -1;
     if (!isValidPhoneNumber(phone)) return -2;
     if (date.length() != 10 || date[2] != '/' || date[5] != '/') return -3;
@@ -299,6 +312,11 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                 if (extraTien > 0) {
                     if (cUser->getSoDu() + extraTien > 10000000) return -12;
                     cUser->napTien(extraTien);
+                    if (!thoiGianLog.empty()) {
+                        int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
+                        string chiTiet = "Gia_Han_Booking_May_" + to_string(idMay);
+                        FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
+                    }
                 }
                 existingBooking->updateLich(existingBooking->getIdMay(), existingBooking->getNgayDat(), existingBooking->getGioBatDau(), existingBooking->getPhutBatDau(), thoiLuong);
                 return 1; 
@@ -323,6 +341,16 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (bookTotalDays < currentTotalDays + 1 || bookTotalDays > currentTotalDays + 7) return -6;
 
         if (existingBooking != nullptr) {
+            double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
+            if (extraTien > 0) {
+                if (cUser->getSoDu() + extraTien > 10000000) return -12;
+                cUser->napTien(extraTien);
+                if (!thoiGianLog.empty()) {
+                    int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
+                    string chiTiet = "Sua_Don_Booking_May_" + to_string(idMay);
+                    FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
+                }
+            }
             existingBooking->updateLich(idMay, date, gio, phut, thoiLuong); 
         } else { 
             double tienNap = (thoiLuong / 60.0) * 20000.0;
@@ -334,6 +362,12 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
             Client* c = findClientByPhone(phone);
             if (c != nullptr) uId = c->getId();
             dsDatLich.addTail(new DatLich(newId, uId, idMay, date, gio, phut, thoiLuong, 0));
+            if (!thoiGianLog.empty()) {
+                double donGiaPhut = 20000.0/60.0; 
+                double tongTien = thoiLuong * donGiaPhut; 
+                string chiTiet = "Thanh_Toan_Booking_May_" + to_string(idMay);
+                FileManager::logDoanhThu(thoiGianLog, "BOK", uId, chiTiet, thoiLuong, tongTien);
+            }
         }
         return 1; 
     } catch (...) { return 0; }
@@ -520,17 +554,43 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     return kickedUsers;
 }
 
-void AdminController::thanhToanBill(Queue<Order*>& q, int userId, string thoiGian) {
+void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& dsMon, int userId, string thoiGianBill, string thoiGianLog) {
     bool allPaid = true;
     for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
-        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
             if (p->data->getPaid() == 0) allPaid = false;
         }
     }
+    
     int newState = allPaid ? 0 : 1; 
-    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
-        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
-            p->data->setPaid(newState);
+
+    // NẾU XÁC NHẬN THANH TOÁN
+    if (newState == 1) {
+        for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+            // Chỉ ghi log cho những món CHƯA thanh toán trong Bill này (tránh ghi trùng nếu bấm lại)
+            if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill && p->data->getPaid() == 0) {
+                p->data->setPaid(1); 
+                
+                string tenMon = "Unknown";
+                double thanhTien = 0;
+                
+                for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                    if (m->data->getId() == p->data->getIdMon()) {
+                        tenMon = m->data->getTenMon();
+                        thanhTien = m->data->getDonGia() * p->data->getSoLuong();
+                        break;
+                    }
+                }
+                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thanhTien);
+            }
+        }
+    } 
+    else {
+        // Hủy thanh toán (Chỉ có tác dụng trên RAM / file Orders, không xóa log Doanh thu)
+        for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+            if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
+                p->data->setPaid(0);
+            }
         }
     }
 }

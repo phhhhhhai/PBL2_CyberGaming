@@ -30,6 +30,8 @@ public:
 
     static void loadBookings(const string& filename, DoublyLinkedList<DatLich*>& dsDatLich);
     static void saveBookings(const string& filename, DoublyLinkedList<DatLich*>& dsDatLich);
+
+    static void logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien);
 };
 
 #endif

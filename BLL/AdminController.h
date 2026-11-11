@@ -32,8 +32,8 @@ public:
     bool isValidPhoneNumber(string phone);
     bool isDuplicateUser(string phone);
     
-    int addTaiKhoan(string phone, string pass, double initialBalance);
-    bool napTien(string username, double amount);
+    int addTaiKhoan(string phone, string pass, double initialBalance, string thoiGianLog = "");
+    bool napTien(string username, double amount, string thoiGianLog = "");
     bool updatePassword(string username, string newPass);
     bool deleteTaiKhoan(string username);
     bool deleteBooking(int bookingId);
@@ -48,12 +48,12 @@ public:
     bool deleteMonAn(int idXoa);
 
     int validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, 
-        int currentTotalDays, int selectedBookingId);
+        int currentTotalDays, int selectedBookingId, string thoiGianLog = "");
 
     Vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
     Vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
 
-    void thanhToanBill(Queue<Order*>& q, int userId, string thoiGian);
+    void thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& dsMon, int userId, string thoiGianBill, string thoiGianLog);
     void giaoHangBill(Queue<Order*>& q, int userId, string thoiGian);
     int deleteBill(Queue<Order*>& q, int userId, string thoiGian);
 

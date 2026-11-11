@@ -149,3 +149,14 @@ void FileManager::saveBookings(const string& filename, DoublyLinkedList<DatLich*
     }
     file.close();
 }
+
+void FileManager::logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien) {
+    ofstream file("Data/DoanhThu.txt", ios::app); 
+    if (file.is_open()) {
+        for (int i = 0; i < thoiGian.length(); i++) if (thoiGian[i] == ' ' || thoiGian[i] == '/') thoiGian[i] = '_';
+        for (int i = 0; i < chiTiet.length(); i++) if (chiTiet[i] == ' ') chiTiet[i] = '_';
+        
+        file << thoiGian << " " << loai << " " << userId << " " << chiTiet << " " << soLuong << " " << (long long)thanhTien << "\n";
+        file.close();
+    }
+}

@@ -570,7 +570,9 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
                     if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
                 }
-                adminCtrl->thanhToanBill(ordersQueue, tId, selectedBillTime);
+                string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
+                
+                adminCtrl->thanhToanBill(ordersQueue, dsMon, tId, selectedBillTime, thoiGianLog);
                 FileManager::saveOrders("Data/Orders.txt", ordersQueue);
             }
             else {
@@ -645,7 +647,8 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
                 for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
 
-                int res = adminCtrl->validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId);
+                string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
+                int res = adminCtrl->validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId, thoiGianLog);
                 
                 if (res == 1) {
                     FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan); FileManager::saveBookings("Data/Booking.txt", dsDatLich);
@@ -694,23 +697,33 @@ void AppManager::processPopup(Vector2 mousePoint) {
             } 
             else if (popupState == 2) { 
                 double soDuGoc = 0; try { soDuGoc = std::stod(popInp3); } catch(...) { soDuGoc = 0; }
-                int res = adminCtrl->addTaiKhoan(popInp1, popInp2, soDuGoc);
-                if (res == 1) popupState = 0;
+                string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
+                int res = adminCtrl->addTaiKhoan(popInp1, popInp2, soDuGoc, thoiGianLog);
+                if (res == 1) {
+                    FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
+                    popupState = 0;
+                }
                 else if (res == 0) popMsg = "SĐT da ton tai!";
                 else if (res == -3) popMsg = "So du ban dau phai >= 10000 VND!"; 
                 else popMsg = "SĐT phai la so & bat dau bang 0!";
             }
-            else if (popupState == 5) { 
-                double napThem = 0; 
+            else if (popupState == 5) {
+                double napThem = 0;
                 if (!popInp2.empty()) try { napThem = std::stod(popInp2); } catch(...) {}
                 bool napOk = true;
-                if (napThem > 0) napOk = adminCtrl->napTien(selectedAccountUsername, napThem);
                 
-                if (!napOk) { popMsg = "Nap that bai (Toi da 5tr/lan, tong Du < 10tr)"; } 
+                if (napThem > 0) {
+                    string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
+                    napOk = adminCtrl->napTien(selectedAccountUsername, napThem, thoiGianLog);
+                }
+
+                if (!napOk) { popMsg = "Nap that bai (Toi da 5tr/lan, tong Du < 10tr)"; }
                 else {
                     adminCtrl->updatePassword(selectedAccountUsername, popInp1);
                     FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
-                    popupState = 0; selectedAccountUsername = "";
+                    popupState = 0; 
+                    popMsg = ""; 
+                    selectedAccountUsername = "";
                 }
             }
             else if (popupState == 6) { 
