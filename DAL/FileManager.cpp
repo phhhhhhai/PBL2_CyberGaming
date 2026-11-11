@@ -130,10 +130,10 @@ void FileManager::loadBookings(const string& filename, DoublyLinkedList<DatLich*
     while (getline(file, line)) {
         if (line.empty()) continue;
         stringstream ss(line);
-        int id, mId, g, p, tl, tt;
-        string sdt, ngay;
-        if (ss >> id >> sdt >> mId >> ngay >> g >> p >> tl >> tt) {
-            dsDatLich.addTail(new DatLich(id, sdt, mId, ngay, g, p, tl, tt));
+        int id, uId, mId, g, p, tl, tt; 
+        string ngay;
+        if (ss >> id >> uId >> mId >> ngay >> g >> p >> tl >> tt) {
+            dsDatLich.addTail(new DatLich(id, uId, mId, ngay, g, p, tl, tt));
         }
     }
     file.close();
@@ -143,7 +143,7 @@ void FileManager::saveBookings(const string& filename, DoublyLinkedList<DatLich*
     ofstream file(filename);
     for (Node<DatLich*>* p = dsDatLich.getHead(); p != nullptr; p = p->next) {
         DatLich* b = p->data;
-        file << b->getId() << " " << b->getSdtKhach() << " " << b->getIdMay() << " "
+        file << b->getId() << " " << b->getUserId() << " " << b->getIdMay() << " "
              << b->getNgayDat() << " " << b->getGioBatDau() << " " << b->getPhutBatDau() << " "
              << b->getThoiLuong() << " " << b->getTrangThai() << "\n";
     }

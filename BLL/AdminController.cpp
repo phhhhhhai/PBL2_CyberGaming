@@ -20,6 +20,15 @@ Client* AdminController::findClientByPhone(const string& phone) {
     return dynamic_cast<Client*>(findUserByPhone(phone)); 
 }
 
+Client* AdminController::findClientById(int id) {
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getId() == id) {
+            return dynamic_cast<Client*>(p->data);
+        }
+    }
+    return nullptr;
+}
+
 MayTram* AdminController::findMachineById(int id) {
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
@@ -177,10 +186,18 @@ bool AdminController::deleteTaiKhoan(string username) {
         if (m) m->freeMachine();
 
         // 2. Xóa các đơn đặt lịch của user này và nhả máy đang giữ chỗ (trạng thái 4)
+        int targetId = -1;
+        for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+            if (u->data->getUsername() == username) { 
+                targetId = u->data->getId(); 
+                break; 
+            }
+        }
         Node<DatLich*>* bNode = dsDatLich.getHead();
+        Node<DatLich*>* bPrev = nullptr;
         while (bNode != nullptr) {
             Node<DatLich*>* nextNode = bNode->next;
-            if (bNode->data->getSdtKhach() == username) {
+            if (bNode->data->getUserId() == targetId) {
                 if (bNode->data->getTrangThai() == 0) {
                     MayTram* bookM = findMachineById(bNode->data->getIdMay());
                     if (bookM && bookM->getTrangThai() == 4) bookM->setTrangThai(0);
@@ -212,7 +229,7 @@ bool AdminController::deleteBooking(int bookingId) {
                 if (b->getTrangThai() == 0 && m->getTrangThai() == 4) {
                     m->setTrangThai(0); // Nhả máy đang khóa chờ book
                 }
-                else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
+                else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
                     m->freeMachine(); 
                     m->setTrangThai(2); // Khách đang chơi bị hủy đơn thì đá ra, máy chuyển về trạng thái dọn dẹp
                 }
@@ -313,7 +330,10 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
             cUser->napTien(tienNap);
             int newId = 1;
             if (dsDatLich.getSize() > 0) newId = dsDatLich.getTail()->data->getId() + 1;
-            dsDatLich.addTail(new DatLich(newId, phone, idMay, date, gio, phut, thoiLuong, 0)); 
+            int uId = -1;
+            Client* c = findClientByPhone(phone);
+            if (c != nullptr) uId = c->getId();
+            dsDatLich.addTail(new DatLich(newId, uId, idMay, date, gio, phut, thoiLuong, 0));
         }
         return 1; 
     } catch (...) { return 0; }
@@ -350,8 +370,8 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
         // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn)
         if (bookTotalDays < currentTotalDays) {
             if (b->getTrangThai() != 2) {
-                if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                    kickedUsers.push_back(b->getSdtKhach());
+                if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
+                    kickedUsers.push_back(m->getCurrentClient()->getUsername());
                     m->freeMachine(); 
                     m->setTrangThai(0); 
                 }
@@ -368,7 +388,7 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                 if (currMinsTotal >= bookMins - 15) {
                     // Chuyển ghế sang trạng thái ĐANG DỌN DẸP (2) để nhân viên biết.
                     if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
-                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getId() != b->getUserId())) {
                         
                         if (m->getCurrentClient() != nullptr) {
                             kickedUsers.push_back(m->getCurrentClient()->getUsername());
@@ -385,10 +405,10 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
             // TRONG GIỜ ĐẶT
             else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
                 b->setTrangThai(1); 
-                Client* cUser = findClientByPhone(b->getSdtKhach()); 
+                Client* cUser = findClientById(b->getUserId());
                 if (cUser != nullptr) {
                     if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
-                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getId() != b->getUserId())) {
                         if (m->getCurrentClient() != nullptr) kickedUsers.push_back(m->getCurrentClient()->getUsername());
                         m->freeMachine();
                         m->setTrangThai(2); 
@@ -407,8 +427,8 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
             // HẾT GIỜ ĐẶT LỊCH
             else {
                 if (b->getTrangThai() == 1) { 
-                    if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                        kickedUsers.push_back(b->getSdtKhach());
+                    if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
+                        kickedUsers.push_back(m->getCurrentClient()->getUsername());
                         m->freeMachine(); 
                         m->setTrangThai(2); 
                     }

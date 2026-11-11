@@ -265,9 +265,13 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
 
                 string sdtKhach = "Unknown";
                 for (Node<User*>* u = dsTK.getHead(); u != nullptr; u = u->next) {
-                    if (u->data->getId() == bills[i].userId) { sdtKhach = u->data->getUsername(); break; }
+                        if (u->data->getId() == bills[i].userId) { 
+                        sdtKhach = u->data->getUsername(); 
+                        break; 
+                    }
                 }
                 DrawTextEx(font, sdtKhach.c_str(), {tableX + 450, startY}, 20, 1, BLACK);
+
                 DrawTextEx(font, TextFormat("Máy %d", bills[i].machineId), {tableX + 700, startY}, 20, 1, DARKGREEN);
                 DrawTextEx(font, TextFormat("%.0f", bills[i].tongTien), {tableX + 900, startY}, 20, 1, BLUE);
                 
@@ -314,12 +318,23 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
 
             float startY = contentY + 150;
             int i = 0;
+
             for (Node<DatLich*>* p = dsDatLich.getHead(); p != nullptr; p = p->next) {
-                DatLich* b = p->data;
+                DatLich* b = p->data; 
+                
                 if (i % 2 == 0) DrawRectangle(tableX, startY - 10, 1600, 45, LIGHTGRAY);
                 DrawTextEx(font, TextFormat("%d", b->getId()), {tableX + 20, startY}, 20, 1, BLACK);
                 DrawTextEx(font, TextFormat("STR %d", b->getIdMay()), {tableX + 100, startY}, 20, 1, DARKBLUE);
-                DrawTextEx(font, b->getSdtKhach().c_str(), {tableX + 200, startY}, 20, 1, BLACK);
+                
+                string sdtKhach = "Unknown";
+                for (Node<User*>* u = dsTK.getHead(); u != nullptr; u = u->next) {
+                    if (u->data->getId() == b->getUserId()) { 
+                        sdtKhach = u->data->getUsername(); 
+                        break; 
+                    }
+                }
+                DrawTextEx(font, sdtKhach.c_str(), {tableX + 200, startY}, 20, 1, BLACK);
+                
                 DrawTextEx(font, b->getNgayDat().c_str(), {tableX + 450, startY}, 20, 1, BLACK);
                 DrawTextEx(font, TextFormat("%02d:%02d", b->getGioBatDau(), b->getPhutBatDau()), {tableX + 700, startY}, 20, 1, BLACK);
                 DrawTextEx(font, TextFormat("%d Phút", b->getThoiLuong()), {tableX + 900, startY}, 20, 1, BLACK);
@@ -334,7 +349,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 startY += 45;
                 i++;
             }
-        }
+        } 
     } 
     else { 
         DrawTextEx(font, TextFormat("Xin chào: %s", currentUser->getUsername().c_str()), {100, contentY}, 35, 1, DARKBLUE);

@@ -23,6 +23,7 @@ private:
     MayTram* (*grid)[COLS]; 
     User* findUserByPhone(const string& phone);
     Client* findClientByPhone(const string& phone);
+    Client* findClientById(int id);
     MayTram* findMachineById(int id);
     MayTram* findMachineByUsername(const string& username);
 public:

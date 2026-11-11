@@ -308,7 +308,12 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                             if (CheckCollisionPointRec(mousePoint, {160 + 1300, startY - 5, 75, 30})) {
                                 selectedBookingId = b->getId();
                                 popupState = 14; activePopInp = 1; popMsg = "";
-                                popInp1 = b->getSdtKhach(); popInp2 = std::to_string(b->getIdMay()); popInp3 = b->getNgayDat();
+                                string sdtKhach = "";
+                                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                                    if (u->data->getId() == b->getUserId()) { sdtKhach = u->data->getUsername(); break; }
+                                }
+                                popInp1 = sdtKhach;
+                                popInp2 = std::to_string(b->getIdMay()); popInp3 = b->getNgayDat();
                                 popInp4 = std::to_string(b->getGioBatDau()); popInp5 = std::to_string(b->getPhutBatDau());
                                 popInp6 = std::to_string(b->getThoiLuong()); popInp7 = ""; 
                             }
