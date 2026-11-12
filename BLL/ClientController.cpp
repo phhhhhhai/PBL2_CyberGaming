@@ -71,14 +71,13 @@ void ClientController::returnMachine(string username) {
 int ClientController::validateLogin(string username, string password, int currentHour, User*& loggedInUser) {
     for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
         if (p->data->getUsername() == username) {
-            
+            if (p->data->getStatus() == 0) return -1;
             if (p->data->getPassword() != password) return -2; 
 
             loggedInUser = p->data;
             bool isAdmin = (p->data->getRoleId() == 1);
             if (isAdmin) return 1; 
 
-            // --- LOGIC CHO CLIENT ---
             if (currentHour < 7 || currentHour >= 22) return -3; 
             
             Client* cObj = dynamic_cast<Client*>(p->data);
@@ -103,4 +102,21 @@ int ClientController::validateLogin(string username, string password, int curren
         }
     }
     return -1; 
+}
+
+int ClientController::datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian) {
+    MayTram* m = findMachineByUsername(username);
+    Client* c = findClientByPhone(username);
+    if (!m || !c) return -1; 
+
+    int nextOrderId = 1;
+    for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+        if (o->data->getId() >= nextOrderId) nextOrderId = o->data->getId() + 1;
+    }
+
+    for (Node<CartItem*>* ci = cart.getHead(); ci != nullptr; ci = ci->next) {
+        ordersQueue.enqueue(new Order(nextOrderId++, m->getId(), c->getId(), ci->data->getFoodId(), ci->data->getSoLuong(), 0, 0, thoiGian));
+    }
+    cart.clear();
+    return 1;
 }

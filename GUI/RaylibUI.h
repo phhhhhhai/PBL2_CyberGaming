@@ -11,6 +11,7 @@
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Queue.h"
 #include "../BLL/Vector.h"
+#include "../BLL/AdminController.h"
 #include <string>
 
 using namespace std;
@@ -30,7 +31,7 @@ public:
         DoublyLinkedList<User*>& dsTK, DoublyLinkedList<MonAn*>& dsMon, Queue<Order*>& ordersQueue, 
         DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
         string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg,
-        int assignScroll, int selectedMachine, bool isHappyHourActive);
+        int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl);
     static void drawGrid2D(Font font, MayTram* grid[ROWS][COLS], int offsetX, int offsetY);
 
     static void transferMachineData(MayTram grid[ROWS][COLS], int srcId, int destId, const string& filename);

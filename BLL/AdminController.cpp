@@ -191,23 +191,17 @@ bool AdminController::deleteMonAn(int idXoa) {
     return false;
 }
 
-bool AdminController::deleteTaiKhoan(string username) {
+bool AdminController::deleteTaiKhoan(string username, Queue<Order*>& ordersQueue) {
     User* u = findUserByPhone(username);
     if (u) {
-        // 1. Giải phóng máy nếu user đang ngồi chơi trực tiếp
+        if (u->getRoleId() == 1) return false;
+        int targetId = u->getId();
+        u->setStatus(0); 
+
         MayTram* m = findMachineByUsername(username);
         if (m) m->freeMachine();
 
-        // 2. Xóa các đơn đặt lịch của user này và nhả máy đang giữ chỗ (trạng thái 4)
-        int targetId = -1;
-        for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-            if (u->data->getUsername() == username) { 
-                targetId = u->data->getId(); 
-                break; 
-            }
-        }
         Node<DatLich*>* bNode = dsDatLich.getHead();
-        Node<DatLich*>* bPrev = nullptr;
         while (bNode != nullptr) {
             Node<DatLich*>* nextNode = bNode->next;
             if (bNode->data->getUserId() == targetId) {
@@ -221,14 +215,18 @@ bool AdminController::deleteTaiKhoan(string username) {
             bNode = nextNode;
         }
 
-        // 3. Xóa user khỏi danh sách tài khoản
-        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-            if (p->data->getUsername() == username) {
-                delete p->data;
-                dsTaiKhoan.remove(p);
-                return true;
+        Queue<Order*> tempQueue;
+        while (!ordersQueue.isEmpty()) {
+            Order* o = ordersQueue.dequeue();
+            if (o->getUserId() == targetId) {
+                delete o; 
+            } else {
+                tempQueue.enqueue(o); 
             }
         }
+        while (!tempQueue.isEmpty()) ordersQueue.enqueue(tempQueue.dequeue());
+
+        return true;
     }
     return false;
 }
@@ -240,11 +238,11 @@ bool AdminController::deleteBooking(int bookingId) {
             MayTram* m = findMachineById(b->getIdMay());
             if (m != nullptr) {
                 if (b->getTrangThai() == 0 && m->getTrangThai() == 4) {
-                    m->setTrangThai(0); // Nhả máy đang khóa chờ book
+                    m->setTrangThai(0); 
                 }
                 else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
                     m->freeMachine(); 
-                    m->setTrangThai(2); // Khách đang chơi bị hủy đơn thì đá ra, máy chuyển về trạng thái dọn dẹp
+                    m->setTrangThai(2); 
                 }
             }
             delete b; 
@@ -656,4 +654,32 @@ int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
     }
     while (!temp.isEmpty()) q.enqueue(temp.dequeue());
     return found ? 1 : 0;
+}
+
+Vector<HoaDonDTO> AdminController::getDanhSachHoaDon(Queue<Order*>& ordersQueue) {
+    Vector<HoaDonDTO> bills;
+    for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
+        Order* o = p->data;
+        bool found = false;
+        for (int k = 0; k < bills.size(); k++) {
+            if (bills[k].userId == o->getUserId() && bills[k].thoiGian == o->getThoiGian()) {
+                double gia = 0;
+                for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                    if (m->data->getId() == o->getIdMon()) { gia = m->data->getDonGia(); break; }
+                }
+                bills[k].tongTien += gia * o->getSoLuong();
+                if (o->getStatus() == 0) bills[k].trangThai = 0; 
+                if (o->getPaid() == 0) bills[k].thanhToan = 0;   
+                found = true; break;
+            }
+        }
+        if (!found) {
+            HoaDonDTO b(o->getUserId(), o->getThoiGian(), o->getMachineId(), 0, o->getStatus(), o->getPaid());
+            for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                if (m->data->getId() == o->getIdMon()) { b.tongTien = m->data->getDonGia() * o->getSoLuong(); break; }
+            }
+            bills.push_back(b);
+        }
+    }
+    return bills;
 }

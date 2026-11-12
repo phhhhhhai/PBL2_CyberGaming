@@ -50,6 +50,7 @@ void RaylibUI::drawLoginScreen(Font font, string inputUser, string inputPass, in
     
     int count = 0; float itemY = listY;
     for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getStatus() == 0) continue;
         if (count >= loginScroll && count < loginScroll + 5) {
             Rectangle itemRec = {listX, itemY, 380, 40};
             bool isSelected = (inputUser == p->data->getUsername());
@@ -69,7 +70,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
     DoublyLinkedList<User*>& dsTK, DoublyLinkedList<MonAn*>& dsMon, Queue<Order*>& ordersQueue, 
     DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
     string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg, 
-    int assignScroll, int selectedMachine, bool isHappyHourActive) 
+    int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl) 
 {
     DrawRectangle(0, 0, 1920, 50, DARKGRAY); 
     
@@ -158,17 +159,10 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             float startY = contentY + 150;
             int i = 0;
             for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
+                if (p->data->getStatus() == 0) continue;
                 if (i % 2 == 0) DrawRectangle(tableX, startY - 10, 1600, 45, LIGHTGRAY);
-                string mayDangNgoi = "-";
-                for (int r = 0; r < ROWS; r++) {
-                    for (int c = 0; c < COLS; c++) {
-                        if (grid[r][c]->getCurrentClient() != nullptr && 
-                            grid[r][c]->getCurrentClient()->getUsername() == p->data->getUsername()) {
-                            mayDangNgoi = TextFormat("Máy %d", grid[r][c]->getId());
-                            break;
-                        }
-                    }
-                }
+                MayTram* m = adminCtrl->findMachineByUsername(p->data->getUsername());
+                string mayDangNgoi = (m != nullptr) ? TextFormat("Máy %d", m->getId()) : "-";
                 
                 Client* clientObj = dynamic_cast<Client*>(p->data);
                 double soDu = (clientObj != nullptr) ? clientObj->getSoDu() : 0;
@@ -226,36 +220,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawTextEx(font, "Trạng thái", {tableX + 1150, contentY + 95}, 20, 1, WHITE); 
             DrawTextEx(font, "Thao tác", {tableX + 1400, contentY + 95}, 20, 1, WHITE);
             
-            struct BillUI {
-                int userId; string thoiGian; int machineId;
-                double tongTien; int trangThai; int thanhToan;
-            };
-            Vector<BillUI> bills;
-            for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
-                Order* o = p->data;
-                bool found = false;
-                for (int k = 0; k < bills.size(); k++) {
-                    if (bills[k].userId == o->getUserId() && bills[k].thoiGian == o->getThoiGian()) {
-                        double gia = 0;
-                        for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
-                            if (m->data->getId() == o->getIdMon()) { gia = m->data->getDonGia(); break; }
-                        }
-                        bills[k].tongTien += gia * o->getSoLuong();
-                        if (o->getStatus() == 0) bills[k].trangThai = 0; 
-                        if (o->getPaid() == 0) bills[k].thanhToan = 0;   
-                        found = true; break;
-                    }
-                }
-                if (!found) {
-                    BillUI b; b.userId = o->getUserId(); b.thoiGian = o->getThoiGian(); b.machineId = o->getMachineId();
-                    b.trangThai = o->getStatus(); b.thanhToan = o->getPaid(); b.tongTien = 0;
-                    for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
-                        if (m->data->getId() == o->getIdMon()) { b.tongTien = m->data->getDonGia() * o->getSoLuong(); break; }
-                    }
-                    bills.push_back(b);
-                }
-            }
-
+            Vector<HoaDonDTO> bills = adminCtrl->getDanhSachHoaDon(ordersQueue);
             float startY = contentY + 150;
             for (int i = 0; i < bills.size(); i++) {
                 if (i % 2 == 0) DrawRectangle(tableX, startY - 10, 1600, 45, LIGHTGRAY);

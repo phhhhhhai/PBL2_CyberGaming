@@ -15,6 +15,14 @@
 
 using namespace std;
 
+class HoaDonDTO {
+public:
+    int userId; string thoiGian; int machineId; double tongTien; int trangThai; int thanhToan;
+    HoaDonDTO() {}
+    HoaDonDTO(int u, string tg, int m, double t, int tt, int p) 
+        : userId(u), thoiGian(tg), machineId(m), tongTien(t), trangThai(tt), thanhToan(p) {}
+};
+
 class AdminController {
 private:
     DoublyLinkedList<User*>& dsTaiKhoan;
@@ -23,11 +31,12 @@ private:
     MayTram* (*grid)[COLS]; 
     User* findUserByPhone(const string& phone);
     Client* findClientByPhone(const string& phone);
-    Client* findClientById(int id);
     MayTram* findMachineById(int id);
-    MayTram* findMachineByUsername(const string& username);
 public:
     AdminController(DoublyLinkedList<User*>& users, DoublyLinkedList<DatLich*>& bookings, DoublyLinkedList<MonAn*>& foods, MayTram* g[ROWS][COLS]);
+    
+    Client* findClientById(int id);    
+    MayTram* findMachineByUsername(const string& username);
 
     bool isValidPhoneNumber(string phone);
     bool isDuplicateUser(string phone);
@@ -35,7 +44,7 @@ public:
     int addTaiKhoan(string phone, string pass, double initialBalance, string thoiGianLog = "");
     bool napTien(string username, double amount, string thoiGianLog = "");
     bool updatePassword(string username, string newPass);
-    bool deleteTaiKhoan(string username);
+    bool deleteTaiKhoan(string username, Queue<Order*>& ordersQueue);
     bool deleteBooking(int bookingId);
 
     int assignSeat(string username, int idMay);
@@ -59,6 +68,8 @@ public:
 
     int updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty);
     int deleteOrder(Queue<Order*>& q, int orderId);
+
+    Vector<HoaDonDTO> getDanhSachHoaDon(Queue<Order*>& ordersQueue);
 };
 
 #endif

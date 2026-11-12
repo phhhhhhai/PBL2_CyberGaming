@@ -66,11 +66,15 @@ void AppManager::processLogin(Vector2 mousePoint) {
         if (CheckCollisionPointRec(mousePoint, {listX + 390, listY + 185, 40, 40})) loginScroll++;
         if (loginScroll < 0) loginScroll = 0;
         
-        int totalAcc = dsTaiKhoan.getSize();
+        int totalAcc = 0;
+        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+            if (p->data->getStatus() == 1) totalAcc++;
+        }
         if (loginScroll > totalAcc - 5 && totalAcc > 5) loginScroll = totalAcc - 5;
         
         int count = 0; float itemY = listY;
         for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+            if (p->data->getStatus() == 0) continue;
             if (count >= loginScroll && count < loginScroll + 5) {
                 if (CheckCollisionPointRec(mousePoint, {listX, itemY, 380, 40})) {
                     inputUser = p->data->getUsername(); 
@@ -216,6 +220,7 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         }
                         float startY = 250;
                         for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+                            if (p->data->getStatus() == 0) continue;
                             if (CheckCollisionPointRec(mousePoint, {1440, startY - 5, 80, 30})) {
                                 selectedAccountUsername = p->data->getUsername();
                                 popupState = 11; selectedBillTime = ""; 
@@ -248,22 +253,8 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         }
                     }
                     else if (currentTab == 3) {
-                        struct BillClickInfo { int userId; string thoiGian; };
-                        Vector<BillClickInfo> bills;
-                        
-                        for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
-                            bool found = false;
-                            for(int k = 0; k < bills.size(); k++){
-                                if(bills[k].userId == p->data->getUserId() && bills[k].thoiGian == p->data->getThoiGian()) { found = true; break; }
-                            }
-                            if(!found) {
-                                BillClickInfo b = {p->data->getUserId(), p->data->getThoiGian()};
-                                bills.push_back(b);
-                            }
-                        }
-
-                        float startY = 250; 
-                        float tableX = 160;
+                        Vector<HoaDonDTO> bills = adminCtrl->getDanhSachHoaDon(ordersQueue);
+                        float startY = 250; float tableX = 160;
                         for (int i = 0; i < bills.size(); i++) {
                             Rectangle btnStatus = {tableX + 1140, startY - 5, 110, 30};
                             Rectangle btnDetail = {tableX + 1380, startY - 5, 100, 30};
@@ -417,27 +408,12 @@ void AppManager::processPopup(Vector2 mousePoint) {
 
             Rectangle btnXacNhanDat = {1280, 830, 280, 50};
             if (CheckCollisionPointRec(mousePoint, btnXacNhanDat) && cartList.getSize() > 0) {
-                int mId = -1;
-                for (int r = 0; r < ROWS; r++) for (int c_idx = 0; c_idx < COLS; c_idx++) {
-                    if (grid[r][c_idx]->getCurrentClient() != nullptr &&
-                        grid[r][c_idx]->getCurrentClient()->getUsername() == currentUser->getUsername()) {
-                        mId = grid[r][c_idx]->getId();
-                        break;
-                    }
-                }
-                
-                int nextOrderId = 1;
-                for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
-                    if (o->data->getId() >= nextOrderId) nextOrderId = o->data->getId() + 1;
-                }
-
                 string currentTime = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
-                for (Node<CartItem*>* c = cartList.getHead(); c != nullptr; c = c->next) {
-                    ordersQueue.enqueue(new Order(nextOrderId++, mId, currentUser->getId(), c->data->getFoodId(), c->data->getSoLuong(), 0, 0, currentTime));
-                }
-                cartList.clear(); 
-                popMsg = "Dat mon thanh cong! Yeu cau da gui toi Admin.";
-                FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                int res = clientCtrl->datMon(currentUser->getUsername(), cartList, ordersQueue, currentTime);
+                if (res == 1) {
+                    popMsg = "Dat mon thanh cong! Yeu cau da gui toi Admin.";
+                    FileManager::saveOrders("Data/Orders.txt", ordersQueue);
+                } else popMsg = "Loi: Khong the dat mon!";
             }
 
             Rectangle btnDongMenu = {350, 830, 180, 50};
@@ -727,11 +703,16 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 }
             }
             else if (popupState == 6) { 
-                adminCtrl->deleteTaiKhoan(selectedAccountUsername);
-                FileManager::saveBookings("Data/Booking.txt", dsDatLich);
-                FileManager::saveGrid("Data/MayTram.txt", grid);
-                FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
-                popupState = 0; selectedAccountUsername = "";
+                bool success = adminCtrl->deleteTaiKhoan(selectedAccountUsername, ordersQueue);
+                if (success) {
+                    FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+                    FileManager::saveGrid("Data/MayTram.txt", grid);
+                    FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
+                    FileManager::saveOrders("Data/Orders.txt", ordersQueue); 
+                    popupState = 0; selectedAccountUsername = "";
+                } else {
+                    popMsg = "Không thể xóa tài khoản quản trị (ADMIN)!";
+                }
             }
             else if (popupState == 7) { 
                 int res = adminCtrl->validateAndAddMonAn(popInp1, popInp2);
@@ -838,7 +819,7 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
             currentUser, popupState, activePopInp, 
             (popupState == 12 || popupState == 22 || popupState == 23) ? selectedBillTime : popInp1, 
             (popupState == 11 || popupState == 12 || popupState == 23) ? selectedAccountUsername : popInp2, 
-            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive);
+            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive, adminCtrl);
     }
     EndTextureMode();
 
@@ -873,10 +854,8 @@ void AppManager::run() {
         mousePoint.x /= scaleX; 
         mousePoint.y /= scaleY; 
 
-        // 1. Cập nhật thời gian ảo
         updateTimer();
 
-        // 2. Xử lý logic tương tác chuột theo trạng thái
         if (appState == 0) { 
             processLogin(mousePoint);
         } 
@@ -886,10 +865,7 @@ void AppManager::run() {
             processPopup(mousePoint);
         }
 
-        // 3. Xử lý gõ phím
         processKeyboard();
-
-        // 4. Render đồ họa
         drawScreen(appFont, target);
     }
 
