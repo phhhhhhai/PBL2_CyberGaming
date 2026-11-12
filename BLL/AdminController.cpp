@@ -70,7 +70,6 @@ int AdminController::addTaiKhoan(string phone, string pass, double initialBalanc
     dsTaiKhoan.addTail(new Client(newId, phone, pass, initialBalance));
     if (!thoiGianLog.empty()) {
         FileManager::logDoanhThu(thoiGianLog, "NAP", newId, "Nap_Tien_Tao_Tai_Khoan", 1, initialBalance);
-        updateTop5Vouchers();
     }
     return 1;
 }
@@ -88,7 +87,6 @@ bool AdminController::napTien(string username, double amount, string thoiGianLog
                 
                 if (!thoiGianLog.empty()) {
                     FileManager::logDoanhThu(thoiGianLog, "NAP", c->getId(), "Nap_Tien_Truc_Tiep", 1, amount);
-                    updateTop5Vouchers();
                 }
                 return true;
             }
@@ -318,7 +316,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                         int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
                         string chiTiet = "Gia_Han_Booking_May_" + to_string(idMay);
                         FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
-                        updateTop5Vouchers();
                     }
                 }
                 existingBooking->updateLich(existingBooking->getIdMay(), existingBooking->getNgayDat(), existingBooking->getGioBatDau(), existingBooking->getPhutBatDau(), thoiLuong);
@@ -569,6 +566,12 @@ void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& 
 
     if (newState == 1) {
         Client* cUser = findClientById(userId);
+        
+        int y = stoi(thoiGianLog.substr(0, 4));
+        int m = stoi(thoiGianLog.substr(4, 2));
+        int d = stoi(thoiGianLog.substr(6, 2));
+        int currentDateInt = y * 10000 + m * 100 + d;
+
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
             if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill && p->data->getPaid() == 0) {
                 p->data->setPaid(1); 
@@ -576,19 +579,23 @@ void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& 
                 string tenMon = "Unknown";
                 double thanhTienGoc = 0;
 
-                for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
-                    if (m->data->getId() == p->data->getIdMon()) {
-                        tenMon = m->data->getTenMon();
-                        thanhTienGoc = m->data->getDonGia() * p->data->getSoLuong();
+                for (Node<MonAn*>* mNode = dsMon.getHead(); mNode != nullptr; mNode = mNode->next) {
+                    if (mNode->data->getId() == p->data->getIdMon()) {
+                        tenMon = mNode->data->getTenMon();
+                        thanhTienGoc = mNode->data->getDonGia() * p->data->getSoLuong();
                         break;
                     }
                 }
-                // Áp dụng khấu trừ Voucher 10% qua hàm đóng gói của Client
-                double thanhTienThucThu = (cUser != nullptr) ? cUser->tinhTienFnB(thanhTienGoc) : thanhTienGoc;
+                
+                double thanhTienThucThu = (cUser != nullptr) ? cUser->tinhTienFnB(thanhTienGoc, currentDateInt) : thanhTienGoc;
                 FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thanhTienThucThu);
             }
         }
-        updateTop5Vouchers();
+
+        if (cUser != nullptr && cUser->hasValidVoucher(currentDateInt)) {
+            cUser->suDungVoucher();
+            FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
+        }
     } 
     else {
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
@@ -662,26 +669,55 @@ int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
     return found ? 1 : 0;
 }
 
-void AdminController::updateTop5Vouchers() {
-    Vector<RankItem> top5 = FileManager::getTop5Ranking("Data/DoanhThu.txt");
+// Hàm tính hạn sử dụng 7 ngày (Trả về định dạng YYYYMMDD)
+int tinhNgayHetHan7Ngay(int d, int m, int y) {
+    d += 7;
+    int maxDays = 31;
+    if (m == 4 || m == 6 || m == 9 || m == 11) maxDays = 30;
+    else if (m == 2) maxDays = ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) ? 29 : 28;
+    
+    if (d > maxDays) { 
+        d -= maxDays; 
+        m++; 
+        if (m > 12) { 
+            m = 1; 
+            y++; 
+        } 
+    }
+    return y * 10000 + m * 100 + d;
+}
+
+void AdminController::chotBangXepHangTuan(int vDay, int vMonth, int vYear) {
+    // 1. Tính tổng số ngày hiện tại để lọc dữ liệu 7 ngày qua
+    int currentTotalDays = vYear * 365 + vDay;
+    int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
+    for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
+
+    // 2. Tính Top 5 trong 7 ngày qua và lưu ra file BXHTuan.txt
+    Vector<RankItem> top5 = FileManager::calculateTop5FromLog("Data/DoanhThu.txt", currentTotalDays);
+    FileManager::saveBXHTuan("Data/BXHTuan.txt", top5);
+
+    // 3. Cấp phát Voucher (HSD 7 ngày, dùng 1 lần)
+    int expDateInt = tinhNgayHetHan7Ngay(vDay, vMonth, vYear);
 
     for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
         Client* c = dynamic_cast<Client*>(p->data);
         if (c != nullptr) {
             bool isTop5 = false;
             for (int i = 0; i < top5.size(); i++) {
-                if (top5[i].userId == c->getId()) {
-                    isTop5 = true;
-                    break;
+                if (top5[i].userId == c->getId()) { 
+                    isTop5 = true; 
+                    break; 
                 }
             }
+            // Tặng Voucher cho Top 5, rớt Top thì hủy Voucher cũ
             if (isTop5) {
-                if (!c->hasVoucher()) {
-                    c->setVoucher(new Voucher(10, "Voucher Top 5 (-10% F&B)"));
-                }
+                c->setVoucher(new Voucher(10, expDateInt, false));
             } else {
                 c->setVoucher(nullptr);
             }
         }
     }
+    FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
 }

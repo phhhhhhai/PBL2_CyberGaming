@@ -33,29 +33,32 @@ public:
         return false;
     }
 
-    // --- CÁC HÀM XỬ LÝ VOUCHER (TÍNH ĐÓNG GÓI OOP) ---
     void setVoucher(Voucher* v) {
         if (myVoucher != nullptr) delete myVoucher;
         myVoucher = v;
     }
 
-    bool hasVoucher() const {
-        return myVoucher != nullptr;
+    bool hasValidVoucher(int currentDateInt) const {
+        return (myVoucher != nullptr && myVoucher->isValid(currentDateInt));
     }
 
-    Voucher* getVoucher() const {
-        return myVoucher;
-    }
+    Voucher* getVoucher() const { return myVoucher; }
 
-    double tinhTienGiamFnB(double tongTienGoc) const {
+    void suDungVoucher() {
         if (myVoucher != nullptr) {
-            return myVoucher->tinhSoTienGiam(tongTienGoc);
+            myVoucher->setDaSuDung(true);
+        }
+    }
+
+    double tinhTienGiamFnB(double tongTienGoc, int currentDateInt) const {
+        if (myVoucher != nullptr) {
+            return myVoucher->tinhSoTienGiam(tongTienGoc, currentDateInt);
         }
         return 0;
     }
 
-    double tinhTienFnB(double tongTienGoc) const {
-        return tongTienGoc - tinhTienGiamFnB(tongTienGoc);
+    double tinhTienFnB(double tongTienGoc, int currentDateInt) const {
+        return tongTienGoc - tinhTienGiamFnB(tongTienGoc, currentDateInt);
     }
 
     void showInfo() const override {

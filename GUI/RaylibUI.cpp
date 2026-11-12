@@ -403,7 +403,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawTextEx(font, "BẢNG XẾP HẠNG TOP 5 KHÁCH HÀNG VIP", {100, contentY + 110}, 30, 1, DARKBLUE);
             DrawTextEx(font, "* Top 5 khách hàng có tổng chi tiêu (Nạp + Booking + F&B) cao nhất được nhận Voucher giảm 10% F&B!", {100, contentY + 150}, 20, 1, DARKGREEN);
 
-            Vector<RankItem> top5 = FileManager::getTop5Ranking("Data/DoanhThu.txt");
+            Vector<RankItem> top5 = FileManager::loadBXHTuan("Data/BXHTuan.txt");  
 
             float bx = 100, by = contentY + 195;
             DrawRectangle(bx, by, 1400, 50, DARKBLUE);
@@ -602,8 +602,12 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                     break;
                 }
             }
-            double tienGiam = (targetClient != nullptr) ? targetClient->tinhTienGiamFnB(tongCong) : 0;
-            double tongThanhToan = (targetClient != nullptr) ? targetClient->tinhTienFnB(tongCong) : tongCong;
+            // THÊM DÒNG NÀY:
+            int currentDateInt = std::stoi(clockStr.substr(14, 4)) * 10000 + std::stoi(clockStr.substr(11, 2)) * 100 + std::stoi(clockStr.substr(8, 2));
+            
+            // Sửa lại 2 dòng báo lỗi đỏ thành như sau:
+            double tienGiam = (targetClient != nullptr) ? targetClient->tinhTienGiamFnB(tongCong, currentDateInt) : 0;
+            double tongThanhToan = (targetClient != nullptr) ? targetClient->tinhTienFnB(tongCong, currentDateInt) : tongCong;
 
             DrawLineEx({550, 665}, {1350, 665}, 2, LIGHTGRAY);
             DrawTextEx(font, "Thành tiền:", {550, 675}, 20, 1, DARKGRAY);
@@ -681,9 +685,13 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 cIdx++;
             }
 
+            // THÊM DÒNG NÀY:
+            int currentDateInt = std::stoi(clockStr.substr(14, 4)) * 10000 + std::stoi(clockStr.substr(11, 2)) * 100 + std::stoi(clockStr.substr(8, 2));
+
+            // Sửa lại 2 dòng báo lỗi đỏ thành như sau:
             Client* orderClient = dynamic_cast<Client*>(currentUser);
-            double tienGiamCart = (orderClient != nullptr) ? orderClient->tinhTienGiamFnB(tongTienCart) : 0;
-            double tongPhaiTraCart = (orderClient != nullptr) ? orderClient->tinhTienFnB(tongTienCart) : tongTienCart;
+            double tienGiamCart = (orderClient != nullptr) ? orderClient->tinhTienGiamFnB(tongTienCart, currentDateInt) : 0;
+            double tongPhaiTraCart = (orderClient != nullptr) ? orderClient->tinhTienFnB(tongTienCart, currentDateInt) : tongTienCart;
 
             DrawLineEx({960, 710}, {1580, 710}, 2, LIGHTGRAY);
             DrawTextEx(font, TextFormat("Thành tiền: %.0f VNĐ", tongTienCart), {970, 720}, 20, 1, BLACK);

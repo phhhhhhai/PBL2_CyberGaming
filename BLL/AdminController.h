@@ -59,8 +59,9 @@ public:
 
     int updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty);
     int deleteOrder(Queue<Order*>& q, int orderId);
-
-    void updateTop5Vouchers();
+    
+    void updateTop5Vouchers(); // KHAI BÁO HÀM Ở ĐÂY ĐỂ TRÁNH LỖI UNDEFINED
+    void chotBangXepHangTuan(int vDay, int vMonth, int vYear);
 };
 
 #endif
