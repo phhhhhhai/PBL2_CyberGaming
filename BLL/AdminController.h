@@ -59,6 +59,8 @@ public:
 
     int updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty);
     int deleteOrder(Queue<Order*>& q, int orderId);
+
+    void updateTop5Vouchers();
 };
 
 #endif
