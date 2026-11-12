@@ -7,12 +7,33 @@ void FileManager::loadTaiKhoan(const string& filename, DoublyLinkedList<User*>& 
     ifstream file(filename);
     if (!file.is_open()) return;
 
-    int id, roleId, status;
-    string u, p; 
-    double soDu;
-    while (file >> id >> u >> p >> roleId >> soDu >> status) {
-        if (roleId == 1) dsTaiKhoan.addTail(new Admin(id, u, p, status));
-        else dsTaiKhoan.addTail(new Client(id, u, p, soDu, status));
+    string line;
+    while (getline(file, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+
+        int id, roleId, status;
+        string u, p; 
+        double soDu;
+        int expDate = 0, used = 0;
+
+        // Đọc 6 cột cơ bản (có ở cả Admin và Client)
+        if (ss >> id >> u >> p >> roleId >> soDu >> status) {
+            // Thử đọc thêm 2 cột Voucher (chỉ có ở Client mới)
+            if (!(ss >> expDate >> used)) {
+                expDate = 0; used = 0;
+            }
+
+            if (roleId == 1) {
+                dsTaiKhoan.addTail(new Admin(id, u, p, status));
+            } else {
+                Client* c = new Client(id, u, p, soDu, status);
+                if (expDate > 0) {
+                    c->setVoucher(new Voucher(10, expDate, used == 1));
+                }
+                dsTaiKhoan.addTail(c);
+            }
+        }
     }
     file.close();
 }
@@ -26,10 +47,16 @@ void FileManager::saveTaiKhoan(const string& filename, DoublyLinkedList<User*>& 
              << p->data->getRoleId() << " ";
         
         Client* c = dynamic_cast<Client*>(p->data);
-        if (c != nullptr) file << c->getSoDu() << " ";
-        else file << "0 "; 
-        
-        file << p->data->getStatus() << "\n";
+        if (c != nullptr) {
+            file << c->getSoDu() << " " << p->data->getStatus() << " ";
+            if (c->getVoucher() != nullptr) {
+                file << c->getVoucher()->getNgayHetHan() << " " << (c->getVoucher()->isDaSuDung() ? 1 : 0) << "\n";
+            } else {
+                file << "0 0\n";
+            }
+        } else {
+            file << "0 " << p->data->getStatus() << " 0 0\n";
+        }
     }
     file.close();
 }
@@ -72,7 +99,6 @@ void FileManager::loadGrid(const string& filename, MayTram* grid[ROWS][COLS], Do
             if (userId != 0) { 
                 for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
                     if (p->data->getId() == userId) { 
-                        // Ép kiểu để lấy đúng đối tượng Client
                         Client* c = dynamic_cast<Client*>(p->data);
                         if (c != nullptr) grid[i][j]->assignClient(c);
                         break;
@@ -161,7 +187,7 @@ void FileManager::logDoanhThu(string thoiGian, string loai, int userId, string c
     }
 }
 
-Vector<RankItem> FileManager::getTop5Ranking(const string& filename) {
+Vector<RankItem> FileManager::calculateTop5FromLog(const string& filename, int currentTotalDays) {
     Vector<RankItem> list;
     ifstream file(filename);
     if (!file.is_open()) return list;
@@ -170,27 +196,37 @@ Vector<RankItem> FileManager::getTop5Ranking(const string& filename) {
     int uId, sl;
     double tien;
 
-    // 1. Đọc file DoanhThu.txt và cộng dồn tiền theo User_ID
     while (file >> tg >> loai >> uId >> chiTiet >> sl >> tien) {
-        if (uId <= 0) continue;
-        bool found = false;
-        for (int i = 0; i < list.size(); i++) {
-            if (list[i].userId == uId) {
-                list[i].tongChiTieu += tien;
-                found = true;
-                break;
+        if (uId <= 0 || tg.length() < 8) continue;
+        
+        int y = stoi(tg.substr(0, 4));
+        int m = stoi(tg.substr(4, 2));
+        int d = stoi(tg.substr(6, 2));
+        
+        int logDays = y * 365 + d;
+        int mDays[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) mDays[2] = 29;
+        for (int i = 1; i < m; i++) logDays += mDays[i];
+
+        if (currentTotalDays - logDays <= 7 && currentTotalDays - logDays >= 0) {
+            bool found = false;
+            for (int i = 0; i < list.size(); i++) {
+                if (list[i].userId == uId) {
+                    list[i].tongChiTieu += tien;
+                    found = true;
+                    break;
+                }
             }
-        }
-        if (!found) {
-            RankItem item;
-            item.userId = uId;
-            item.tongChiTieu = tien;
-            list.push_back(item);
+            if (!found) {
+                RankItem item;
+                item.userId = uId;
+                item.tongChiTieu = tien;
+                list.push_back(item);
+            }
         }
     }
     file.close();
 
-    // 2. Sắp xếp giảm dần (DESC) theo tổng chi tiêu
     for (int i = 0; i < list.size() - 1; i++) {
         for (int j = i + 1; j < list.size(); j++) {
             if (list[j].tongChiTieu > list[i].tongChiTieu) {
@@ -201,11 +237,36 @@ Vector<RankItem> FileManager::getTop5Ranking(const string& filename) {
         }
     }
 
-    // 3. Cắt lấy tối đa Top 5
     Vector<RankItem> top5;
     int limit = (list.size() < 5) ? list.size() : 5;
     for (int i = 0; i < limit; i++) {
         top5.push_back(list[i]);
     }
+    
     return top5;
+}
+
+void FileManager::saveBXHTuan(const string& filename, Vector<RankItem>& top5) {
+    ofstream file(filename);
+    for (int i = 0; i < top5.size(); i++) {
+        file << top5[i].userId << " " << (long long)top5[i].tongChiTieu << "\n";
+    }
+    file.close();
+}
+
+Vector<RankItem> FileManager::loadBXHTuan(const string& filename) {
+    Vector<RankItem> list;
+    ifstream file(filename);
+    if (!file.is_open()) return list;
+
+    int uId;
+    double tien;
+    while (file >> uId >> tien) {
+        RankItem item;
+        item.userId = uId;
+        item.tongChiTieu = tien;
+        list.push_back(item);
+    }
+    file.close();
+    return list;
 }
