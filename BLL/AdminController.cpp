@@ -128,20 +128,16 @@ bool AdminController::isMachineInBooking(int idMay) {
 int AdminController::changeMachine(int srcId, int destId) {
     MayTram* srcM = findMachineById(srcId);
     MayTram* destM = findMachineById(destId);
-    if (!srcM || !destM) return -1; // Lỗi không tìm thấy máy
-    if (destM->getTrangThai() != 0) return -2; // Máy đích không trống
+    if (!srcM || !destM) return -1;
+    if (destM->getTrangThai() != 0) return -2;
     Client* cUser = srcM->getCurrentClient();
     if (!cUser) return -1;
-    // Máy đang thuộc đơn Booking thì không được đổi
     if (isMachineInBooking(srcId)) return -5; 
-    // Kiểm tra tài chính cho máy mới
     double gia1Gio = (destM->getLoaiMay() == 0) ? 10000 : ((destM->getLoaiMay() == 1) ? 14000 : 20000);
     if (cUser->getSoDu() < gia1Gio) return -3;
-    // Thực hiện đổi máy và bê nguyên trạng thái cũ sang
     int oldState = srcM->getTrangThai();
     destM->assignClient(cUser);
     destM->setTrangThai(oldState);
-    // Dọn dẹp máy cũ
     srcM->freeMachine();
     srcM->setTrangThai(2); 
 
@@ -271,11 +267,9 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
             DatLich* b = node->data;
             if (b->getId() != selectedBookingId && b->getTrangThai() != 2) {
-                // Check cùng máy và cùng ngày
                 if (b->getIdMay() == idMay && b->getNgayDat() == date) {
                     int bStart = b->getGioBatDau() * 60 + b->getPhutBatDau();
                     int bEnd = bStart + b->getThoiLuong();
-                    // trùng khoảng thời gian
                     if (newStart < bEnd && newEnd > bStart) {
                         return -15; 
                     }
@@ -375,7 +369,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
     Vector<string> kickedUsers;
     int currMinsTotal = vHour * 60 + vMinute;
     
-    // Tính tổng số ngày hiện tại của hệ thống để so sánh với ngày đặt lịch
     int currentTotalDays = vYear * 365 + vDay;
     int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
     if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
@@ -386,7 +379,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
         MayTram* m = findMachineById(b->getIdMay()); 
         if (!m) continue;
 
-        // Tính tổng số ngày của đơn đặt lịch
         string dateStr = b->getNgayDat();
         int bD = 0, bM = 0, bY = 0;
         if (dateStr.length() == 10) {
@@ -399,7 +391,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
         if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
         for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];
         
-        // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn)
         if (bookTotalDays < currentTotalDays) {
             if (b->getTrangThai() != 2) {
                 if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
@@ -410,15 +401,12 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                 b->setTrangThai(2);
             }
         }
-        // 2. XỬ LÝ ĐƠN TRONG NGÀY HÔM NAY 
         else if (bookTotalDays == currentTotalDays) {
             int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
             
-            // TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
             if (currMinsTotal < bookMins) {
                 b->setTrangThai(0); 
                 if (currMinsTotal >= bookMins - 15) {
-                    // Chuyển ghế sang trạng thái ĐANG DỌN DẸP (2) để nhân viên biết.
                     if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
                         (m->getCurrentClient() == nullptr || m->getCurrentClient()->getId() != b->getUserId())) {
                         
@@ -428,13 +416,11 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                         m->freeMachine(); 
                         m->setTrangThai(2); 
                     } 
-                    // Nếu máy đã dọn xong (0), thì Khóa giữ chỗ (4)
                     else if (m->getTrangThai() == 0) {
                         m->setTrangThai(4); 
                     }
                 }
             }
-            // TRONG GIỜ ĐẶT
             else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
                 b->setTrangThai(1); 
                 Client* cUser = findClientById(b->getUserId());
@@ -456,7 +442,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                     }
                 }
             }
-            // HẾT GIỜ ĐẶT LỊCH
             else {
                 if (b->getTrangThai() == 1) { 
                     if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
@@ -476,7 +461,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     Vector<string> kickedUsers;
     int skipSeconds = mins * 60;    
     
-    // 1. Xử lý trừ tiền khách đang chơi
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
@@ -496,7 +480,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
         }
     }
     
-    // 2. Tính toán đồng hồ
     if (mins > 0) {
         vMinute += mins;
         while (vMinute >= 60) { vMinute -= 60; vHour++; }
@@ -524,7 +507,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
         }
     }
     
-    // Sẽ dọn sạch mọi ghế về trạng thái TRỐNG (0).
     if (vHour < 7 || vHour >= 22 || mins >= 1440) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
@@ -541,7 +523,7 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     
     Vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
     for (int i = 0; i < bookingKicked.size(); i++) {
-        if (!kickedUsers.contains(bookingKicked[i])) { // Gọi hàm contains thay cho std::find dài ngoằng
+        if (!kickedUsers.contains(bookingKicked[i])) {
             kickedUsers.push_back(bookingKicked[i]);
         }
     }
@@ -562,29 +544,32 @@ void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& 
     
     int newState = allPaid ? 0 : 1; 
 
-    // NẾU XÁC NHẬN THANH TOÁN
     if (newState == 1) {
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
-            // Chỉ ghi log cho những món CHƯA thanh toán trong Bill này (tránh ghi trùng nếu bấm lại)
             if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill && p->data->getPaid() == 0) {
                 p->data->setPaid(1); 
                 
                 string tenMon = "Unknown";
-                double thanhTien = 0;
+                double thanhTienGoc = 0;
                 
                 for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
                     if (m->data->getId() == p->data->getIdMon()) {
                         tenMon = m->data->getTenMon();
-                        thanhTien = m->data->getDonGia() * p->data->getSoLuong();
+                        thanhTienGoc = m->data->getDonGia() * p->data->getSoLuong();
                         break;
                     }
                 }
-                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thanhTien);
+                GiaHoaDon* boTinh = (p->data->getVoucherUsed() == 1)
+                    ? static_cast<GiaHoaDon*>(new GiaHoaDonVoucher10())
+                    : static_cast<GiaHoaDon*>(new GiaHoaDonGoc());
+                double thucTra = boTinh->tinhTongCong(thanhTienGoc);
+                delete boTinh;
+
+                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thucTra);
             }
         }
     } 
     else {
-        // Hủy thanh toán (Chỉ có tác dụng trên RAM / file Orders, không xóa log Doanh thu)
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
             if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
                 p->data->setPaid(0);
@@ -644,7 +629,6 @@ int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
             if (p->data->getStatus() == 1) return -2;
         }
     }
-    // xóa an toàn
     Queue<Order*> temp;
     bool found = false;
     while (!q.isEmpty()) {
@@ -667,19 +651,234 @@ Vector<HoaDonDTO> AdminController::getDanhSachHoaDon(Queue<Order*>& ordersQueue)
                 for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
                     if (m->data->getId() == o->getIdMon()) { gia = m->data->getDonGia(); break; }
                 }
-                bills[k].tongTien += gia * o->getSoLuong();
+                bills[k].thanhTien += gia * o->getSoLuong();
+                if (o->getVoucherUsed() == 1) bills[k].coVoucher = 1;
                 if (o->getStatus() == 0) bills[k].trangThai = 0; 
                 if (o->getPaid() == 0) bills[k].thanhToan = 0;   
                 found = true; break;
             }
         }
         if (!found) {
-            HoaDonDTO b(o->getUserId(), o->getThoiGian(), o->getMachineId(), 0, o->getStatus(), o->getPaid());
+            double giaBanDau = 0;
             for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
-                if (m->data->getId() == o->getIdMon()) { b.tongTien = m->data->getDonGia() * o->getSoLuong(); break; }
+                if (m->data->getId() == o->getIdMon()) { giaBanDau = m->data->getDonGia() * o->getSoLuong(); break; }
             }
+            HoaDonDTO b(o->getUserId(), o->getThoiGian(), o->getMachineId(), giaBanDau, 0, giaBanDau, o->getStatus(), o->getPaid(), o->getVoucherUsed());
             bills.push_back(b);
         }
     }
+    for (int k = 0; k < bills.size(); k++) {
+        GiaHoaDon* boTinh = (bills[k].coVoucher == 1)
+            ? static_cast<GiaHoaDon*>(new GiaHoaDonVoucher10())
+            : static_cast<GiaHoaDon*>(new GiaHoaDonGoc());
+        bills[k].giamGia = boTinh->tinhGiamGia(bills[k].thanhTien);
+        bills[k].tongTien = boTinh->tinhTongCong(bills[k].thanhTien);
+        delete boTinh;
+    }
     return bills;
+}
+
+int AdminController::tinhTongSoNgay(int d, int m, int y) const {
+    int prevY = y - 1;
+    int leapDays = prevY / 4 - prevY / 100 + prevY / 400;
+    int total = y * 365 + leapDays + d;
+    int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) mDays[2] = 29;
+    for (int i = 1; i < m; i++) total += mDays[i];
+    return total;
+}
+
+void AdminController::layKhoangTuanTongKet(int vDay, int vMonth, int vYear, int vHour, int& startDays, int& endDays, int& tuanTrongThang, int& thangHienThi) const {
+    int mocThuHaiGoc = tinhTongSoNgay(16, 11, 2026);
+    int ngayHienTai = tinhTongSoNgay(vDay, vMonth, vYear);
+    int diff = ngayHienTai - mocThuHaiGoc;
+
+    int tuanTongKet = -1;
+    if (diff >= 7) {
+        tuanTongKet = (diff / 7) - 1;
+        if (diff % 7 == 6 && vHour >= 22) {
+            tuanTongKet = diff / 7;
+        }
+    } else if (diff == 6 && vHour >= 22) {
+        tuanTongKet = 0;
+    }
+
+    if (tuanTongKet < 0) {
+        startDays = -1;
+        endDays = -1;
+        tuanTrongThang = 3;
+        thangHienThi = 11;
+        return;
+    }
+
+    startDays = mocThuHaiGoc + tuanTongKet * 7;
+    endDays = startDays + 6;
+
+    int d = 16, m = 11, y = 2026;
+    int addDays = tuanTongKet * 7;
+    while (addDays > 0) {
+        int maxDays = 31;
+        if (m == 4 || m == 6 || m == 9 || m == 11) maxDays = 30;
+        else if (m == 2) maxDays = ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) ? 29 : 28;
+        d++;
+        if (d > maxDays) { d = 1; m++; if (m > 12) { m = 1; y++; } }
+        addDays--;
+    }
+
+    tuanTrongThang = (d - 1) / 7 + 1;
+    if (tuanTrongThang > 4) tuanTrongThang = 4;
+    thangHienThi = m;
+}
+
+string AdminController::layTieuDeBXH(int vDay, int vMonth, int vYear, int vHour) const {
+    int startDays = -1, endDays = -1, tuan = 3, thang = 11;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    return "BẢNG XẾP HẠNG TUẦN " + to_string(tuan) + " THÁNG " + to_string(thang);
+}
+
+Vector<HangXepHang> AdminController::thongKeXepHangTuan(int vDay, int vMonth, int vYear, int vHour) {
+    Vector<HangXepHang> danhSach;
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return danhSach;
+
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getRoleId() == 2 && p->data->getStatus() == 1) {
+            int uId = p->data->getId();
+            double tong = 0;
+            int mocCuoi = -1;
+
+            for (int i = 0; i < dsLog.size(); i++) {
+                if (dsLog[i].getUserId() == uId && dsLog[i].getThanhTien() > 0) {
+                    string tg = dsLog[i].getThoiGian();
+                    if (tg.length() >= 8) {
+                        try {
+                            int ly = stoi(tg.substr(0, 4));
+                            int lm = stoi(tg.substr(4, 2));
+                            int ld = stoi(tg.substr(6, 2));
+                            int logDays = tinhTongSoNgay(ld, lm, ly);
+                            if (logDays >= startDays && logDays <= endDays) {
+                                tong += dsLog[i].getThanhTien();
+                                mocCuoi = dsLog[i].getThuTuLog();
+                            }
+                        } catch (...) {}
+                    }
+                }
+            }
+
+            if (tong > 0) {
+                danhSach.push_back(HangXepHang(0, uId, p->data->getUsername(), tong, mocCuoi));
+            }
+        }
+    }
+
+    for (int i = 0; i < danhSach.size() - 1; i++) {
+        for (int j = i + 1; j < danhSach.size(); j++) {
+            bool doiCho = false;
+            if (danhSach[j].getTongDoanhThu() > danhSach[i].getTongDoanhThu()) {
+                doiCho = true;
+            } else if (danhSach[j].getTongDoanhThu() == danhSach[i].getTongDoanhThu()) {
+                if (danhSach[j].getMocDatCuoi() < danhSach[i].getMocDatCuoi()) {
+                    doiCho = true;
+                }
+            }
+            if (doiCho) {
+                HangXepHang tmp = danhSach[i];
+                danhSach[i] = danhSach[j];
+                danhSach[j] = tmp;
+            }
+        }
+    }
+
+    for (int i = 0; i < danhSach.size(); i++) {
+        danhSach[i].setHang(i + 1);
+    }
+
+    return danhSach;
+}
+
+Vector<HangXepHang> AdminController::layTop5BXH(int vDay, int vMonth, int vYear, int vHour) {
+    Vector<HangXepHang> tatCa = thongKeXepHangTuan(vDay, vMonth, vYear, vHour);
+    Vector<HangXepHang> top5;
+    for (int i = 0; i < tatCa.size() && i < 5; i++) {
+        top5.push_back(tatCa[i]);
+    }
+    return top5;
+}
+
+int AdminController::layHangHienTaiCuaKhach(int userId, int vDay, int vMonth, int vYear, int vHour, double& doanhThuTuan) {
+    doanhThuTuan = 0;
+    Vector<HangXepHang> tatCa = thongKeXepHangTuan(vDay, vMonth, vYear, vHour);
+    for (int i = 0; i < tatCa.size(); i++) {
+        if (tatCa[i].getUserId() == userId) {
+            doanhThuTuan = tatCa[i].getTongDoanhThu();
+            return tatCa[i].getHang();
+        }
+    }
+    return -1;
+}
+
+string AdminController::dinhDangSDT(const string& phone, bool hienDayDu) const {
+    if (hienDayDu) return phone;
+    if (phone.length() >= 7) {
+        return phone.substr(0, 4) + "***" + phone.substr(phone.length() - 3);
+    }
+    return phone;
+}
+
+bool AdminController::daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const {
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return false;
+
+    int hieuLucTu = endDays;
+    int hieuLucDen = endDays + 7;
+
+    for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
+        Order* o = p->data;
+        if (o->getUserId() == userId && o->getVoucherUsed() == 1) {
+            string tg = o->getThoiGian();
+            if (tg.length() >= 18) {
+                try {
+                    string datePart = tg.substr(tg.length() - 10);
+                    int od = stoi(datePart.substr(0, 2));
+                    int om = stoi(datePart.substr(3, 2));
+                    int oy = stoi(datePart.substr(6, 4));
+                    int orderDays = tinhTongSoNgay(od, om, oy);
+                    if (orderDays >= hieuLucTu && orderDays <= hieuLucDen) {
+                        return true;
+                    }
+                } catch (...) {}
+            }
+        }
+    }
+    return false;
+}
+
+Voucher AdminController::layThongTinVoucherCuaKhach(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) {
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return Voucher(userId, 0.1, -1, -1, true);
+
+    bool inTop5 = false;
+    Vector<HangXepHang> top5 = layTop5BXH(vDay, vMonth, vYear, vHour);
+    for (int i = 0; i < top5.size(); i++) {
+        if (top5[i].getUserId() == userId) {
+            inTop5 = true;
+            break;
+        }
+    }
+    if (!inTop5) return Voucher(userId, 0.1, -1, -1, true);
+
+    bool daDung = daDungVoucherTrongTuan(userId, ordersQueue, vDay, vMonth, vYear, vHour);
+    return Voucher(userId, 0.1, endDays, endDays + 7, daDung);
+}
+
+bool AdminController::coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) {
+    Voucher vc = layThongTinVoucherCuaKhach(userId, ordersQueue, vDay, vMonth, vYear, vHour);
+    int ngayHienTai = tinhTongSoNgay(vDay, vMonth, vYear);
+    return vc.conHieuLuc(ngayHienTai);
 }
