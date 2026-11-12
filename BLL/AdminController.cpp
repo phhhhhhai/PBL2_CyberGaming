@@ -70,6 +70,7 @@ int AdminController::addTaiKhoan(string phone, string pass, double initialBalanc
     dsTaiKhoan.addTail(new Client(newId, phone, pass, initialBalance));
     if (!thoiGianLog.empty()) {
         FileManager::logDoanhThu(thoiGianLog, "NAP", newId, "Nap_Tien_Tao_Tai_Khoan", 1, initialBalance);
+        updateTop5Vouchers();
     }
     return 1;
 }
@@ -87,6 +88,7 @@ bool AdminController::napTien(string username, double amount, string thoiGianLog
                 
                 if (!thoiGianLog.empty()) {
                     FileManager::logDoanhThu(thoiGianLog, "NAP", c->getId(), "Nap_Tien_Truc_Tiep", 1, amount);
+                    updateTop5Vouchers();
                 }
                 return true;
             }
@@ -316,6 +318,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                         int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
                         string chiTiet = "Gia_Han_Booking_May_" + to_string(idMay);
                         FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
+                        updateTop5Vouchers();
                     }
                 }
                 existingBooking->updateLich(existingBooking->getIdMay(), existingBooking->getNgayDat(), existingBooking->getGioBatDau(), existingBooking->getPhutBatDau(), thoiLuong);
@@ -561,32 +564,33 @@ void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& 
             if (p->data->getPaid() == 0) allPaid = false;
         }
     }
-    
+
     int newState = allPaid ? 0 : 1; 
 
-    // NẾU XÁC NHẬN THANH TOÁN
     if (newState == 1) {
+        Client* cUser = findClientById(userId);
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
-            // Chỉ ghi log cho những món CHƯA thanh toán trong Bill này (tránh ghi trùng nếu bấm lại)
             if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill && p->data->getPaid() == 0) {
                 p->data->setPaid(1); 
-                
+
                 string tenMon = "Unknown";
-                double thanhTien = 0;
-                
+                double thanhTienGoc = 0;
+
                 for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
                     if (m->data->getId() == p->data->getIdMon()) {
                         tenMon = m->data->getTenMon();
-                        thanhTien = m->data->getDonGia() * p->data->getSoLuong();
+                        thanhTienGoc = m->data->getDonGia() * p->data->getSoLuong();
                         break;
                     }
                 }
-                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thanhTien);
+                // Áp dụng khấu trừ Voucher 10% qua hàm đóng gói của Client
+                double thanhTienThucThu = (cUser != nullptr) ? cUser->tinhTienFnB(thanhTienGoc) : thanhTienGoc;
+                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thanhTienThucThu);
             }
         }
+        updateTop5Vouchers();
     } 
     else {
-        // Hủy thanh toán (Chỉ có tác dụng trên RAM / file Orders, không xóa log Doanh thu)
         for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
             if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
                 p->data->setPaid(0);
@@ -656,4 +660,28 @@ int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
     }
     while (!temp.isEmpty()) q.enqueue(temp.dequeue());
     return found ? 1 : 0;
+}
+
+void AdminController::updateTop5Vouchers() {
+    Vector<RankItem> top5 = FileManager::getTop5Ranking("Data/DoanhThu.txt");
+
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        Client* c = dynamic_cast<Client*>(p->data);
+        if (c != nullptr) {
+            bool isTop5 = false;
+            for (int i = 0; i < top5.size(); i++) {
+                if (top5[i].userId == c->getId()) {
+                    isTop5 = true;
+                    break;
+                }
+            }
+            if (isTop5) {
+                if (!c->hasVoucher()) {
+                    c->setVoucher(new Voucher(10, "Voucher Top 5 (-10% F&B)"));
+                }
+            } else {
+                c->setVoucher(nullptr);
+            }
+        }
+    }
 }

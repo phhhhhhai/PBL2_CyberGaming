@@ -160,3 +160,52 @@ void FileManager::logDoanhThu(string thoiGian, string loai, int userId, string c
         file.close();
     }
 }
+
+Vector<RankItem> FileManager::getTop5Ranking(const string& filename) {
+    Vector<RankItem> list;
+    ifstream file(filename);
+    if (!file.is_open()) return list;
+
+    string tg, loai, chiTiet;
+    int uId, sl;
+    double tien;
+
+    // 1. Đọc file DoanhThu.txt và cộng dồn tiền theo User_ID
+    while (file >> tg >> loai >> uId >> chiTiet >> sl >> tien) {
+        if (uId <= 0) continue;
+        bool found = false;
+        for (int i = 0; i < list.size(); i++) {
+            if (list[i].userId == uId) {
+                list[i].tongChiTieu += tien;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            RankItem item;
+            item.userId = uId;
+            item.tongChiTieu = tien;
+            list.push_back(item);
+        }
+    }
+    file.close();
+
+    // 2. Sắp xếp giảm dần (DESC) theo tổng chi tiêu
+    for (int i = 0; i < list.size() - 1; i++) {
+        for (int j = i + 1; j < list.size(); j++) {
+            if (list[j].tongChiTieu > list[i].tongChiTieu) {
+                RankItem temp = list[i];
+                list[i] = list[j];
+                list[j] = temp;
+            }
+        }
+    }
+
+    // 3. Cắt lấy tối đa Top 5
+    Vector<RankItem> top5;
+    int limit = (list.size() < 5) ? list.size() : 5;
+    for (int i = 0; i < limit; i++) {
+        top5.push_back(list[i]);
+    }
+    return top5;
+}

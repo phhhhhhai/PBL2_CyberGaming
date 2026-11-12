@@ -10,9 +10,15 @@
 #include "../Entities/MayTram.h"
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Queue.h"
+#include "../BLL/Vector.h"
 #include <string>
 
 using namespace std;
+
+struct RankItem {
+    int userId;
+    double tongChiTieu;
+};
 
 class FileManager {
 public:
@@ -32,6 +38,8 @@ public:
     static void saveBookings(const string& filename, DoublyLinkedList<DatLich*>& dsDatLich);
 
     static void logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien);
+
+    static Vector<RankItem> getTop5Ranking(const string& filename);
 };
 
 #endif

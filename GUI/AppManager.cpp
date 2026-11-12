@@ -26,6 +26,7 @@ AppManager::AppManager() {
     }
 
     adminCtrl = new AdminController(dsTaiKhoan, dsDatLich, dsMon, grid);
+    adminCtrl->updateTop5Vouchers();
     clientCtrl = new ClientController(dsTaiKhoan, grid);
 }
 
@@ -331,11 +332,13 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                 Rectangle tabTongQuan = {10, 0, 220, 50};
                 Rectangle tabFnB = {240, 0, 220, 50};
                 Rectangle tabCaiDat = {470, 0, 220, 50};
+                Rectangle tabBXH = {700, 0, 240, 50};
 
                 if (CheckCollisionPointRec(mousePoint, tabTongQuan)) currentTab = 0;
                 else if (CheckCollisionPointRec(mousePoint, tabFnB)) currentTab = 1;
                 else if (CheckCollisionPointRec(mousePoint, tabCaiDat)) currentTab = 2;
-
+                else if (CheckCollisionPointRec(mousePoint, tabBXH)) currentTab = 3;
+                
                 if (currentTab == 1) {
                     Rectangle btnMenuClient = {100, 200, 400, 80}; 
                     Rectangle btnMonDaGoi = {550, 200, 400, 80}; 
