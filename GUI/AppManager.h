@@ -61,7 +61,6 @@ private:
     int vYear = 2026; int vMonth = 10; int vDay = 29;
     int vHour = 13; int vMinute = 0; int vSecond = 0;
     float virtualTimer = 0.0f;
-    int lastUpdateDay = -1;
 
     void updateTimer();                               // Cập nhật giờ và trừ tiền
     void processLogin(Vector2 mousePoint);            // Xử lý click ở màn hình đăng nhập

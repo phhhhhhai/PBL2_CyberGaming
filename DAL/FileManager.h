@@ -39,9 +39,7 @@ public:
 
     static void logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien);
 
-    static Vector<RankItem> calculateTop5FromLog(const string& filename, int currentTotalDays);
-    static void saveBXHTuan(const string& filename, Vector<RankItem>& top5);
-    static Vector<RankItem> loadBXHTuan(const string& filename);
+    static Vector<RankItem> getTop5Ranking(const string& filename);
 };
 
 #endif

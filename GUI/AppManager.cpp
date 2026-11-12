@@ -26,7 +26,7 @@ AppManager::AppManager() {
     }
 
     adminCtrl = new AdminController(dsTaiKhoan, dsDatLich, dsMon, grid);
-    adminCtrl->chotBangXepHangTuan(vDay, vMonth, vYear);
+    adminCtrl->updateTop5Vouchers();
     clientCtrl = new ClientController(dsTaiKhoan, grid);
 }
 
@@ -43,13 +43,6 @@ void AppManager::updateTimer() {
         if (vSecond >= 60) { 
             vSecond = 0;
             Vector<string> kickedUsers = adminCtrl->addVirtualMinutes(1, vDay, vMonth, vYear, vHour, vMinute, isHappyHourActive);
-            
-            // --- TỰ ĐỘNG CHỐT BẢNG XẾP HẠNG (Ngày 1, 8, 15, 22, 29) ---
-            if ((vDay - 1) % 7 == 0 && lastUpdateDay != vDay) {
-                adminCtrl->chotBangXepHangTuan(vDay, vMonth, vYear);
-                lastUpdateDay = vDay; // Đánh dấu hôm nay đã chốt để không chạy lại nữa
-            }
-
             if (currentUser != nullptr && kickedUsers.contains(currentUser->getUsername())) {
                 appState = 0; 
                 currentUser = nullptr; 
@@ -345,7 +338,7 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                 else if (CheckCollisionPointRec(mousePoint, tabFnB)) currentTab = 1;
                 else if (CheckCollisionPointRec(mousePoint, tabCaiDat)) currentTab = 2;
                 else if (CheckCollisionPointRec(mousePoint, tabBXH)) currentTab = 3;
-
+                
                 if (currentTab == 1) {
                     Rectangle btnMenuClient = {100, 200, 400, 80}; 
                     Rectangle btnMonDaGoi = {550, 200, 400, 80}; 
