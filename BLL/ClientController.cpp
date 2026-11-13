@@ -104,7 +104,7 @@ int ClientController::validateLogin(string username, string password, int curren
     return -1; 
 }
 
-int ClientController::datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian) {
+int ClientController::datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian, bool useVoucher) {
     MayTram* m = findMachineByUsername(username);
     Client* c = findClientByPhone(username);
     if (!m || !c) return -1; 
@@ -114,8 +114,9 @@ int ClientController::datMon(string username, DoublyLinkedList<CartItem*>& cart,
         if (o->data->getId() >= nextOrderId) nextOrderId = o->data->getId() + 1;
     }
 
+    int vcFlag = useVoucher ? 1 : 0;
     for (Node<CartItem*>* ci = cart.getHead(); ci != nullptr; ci = ci->next) {
-        ordersQueue.enqueue(new Order(nextOrderId++, m->getId(), c->getId(), ci->data->getFoodId(), ci->data->getSoLuong(), 0, 0, thoiGian));
+        ordersQueue.enqueue(new Order(nextOrderId++, m->getId(), c->getId(), ci->data->getFoodId(), ci->data->getSoLuong(), 0, 0, thoiGian, vcFlag));
     }
     cart.clear();
     return 1;

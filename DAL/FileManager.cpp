@@ -106,8 +106,17 @@ void FileManager::loadOrders(const string& filename, Queue<Order*>& ordersQueue)
     int id, mId, uId, idMon, sl, status, paid;
     string tg;
     while (file >> id >> mId >> uId >> idMon >> sl >> status >> paid) {
-        getline(file >> ws, tg); 
-        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid, tg));
+        getline(file >> ws, tg);
+        while (!tg.empty() && (tg.back() == '\r' || tg.back() == '\n' || tg.back() == ' ')) {
+            tg.pop_back();
+        }
+        int vc = 0;
+        string tag = " #V10";
+        if (tg.length() >= tag.length() && tg.substr(tg.length() - tag.length()) == tag) {
+            vc = 1;
+            tg = tg.substr(0, tg.length() - tag.length());
+        }
+        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid, tg, vc));
     }
     file.close();
 }
@@ -116,9 +125,11 @@ void FileManager::saveOrders(const string& filename, Queue<Order*>& ordersQueue)
     ofstream file(filename);
     for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
         Order* o = p->data;
+        string tg = o->getThoiGian().empty() ? "Unknown" : o->getThoiGian();
+        if (o->getVoucherUsed() == 1) tg += " #V10";
         file << o->getId() << " " << o->getMachineId() << " " << o->getUserId() << " "
              << o->getIdMon() << " " << o->getSoLuong() << " " << o->getStatus() << " " 
-             << o->getPaid() << " " << (o->getThoiGian().empty() ? "Unknown" : o->getThoiGian()) << "\n";
+             << o->getPaid() << " " << tg << "\n";
     }
     file.close();
 }
@@ -159,4 +170,17 @@ void FileManager::logDoanhThu(string thoiGian, string loai, int userId, string c
         file << thoiGian << " " << loai << " " << userId << " " << chiTiet << " " << soLuong << " " << (long long)thanhTien << "\n";
         file.close();
     }
+}
+
+void FileManager::loadDoanhThu(const string& filename, Vector<GiaoDichDoanhThu>& dsGiaoDich) {
+    ifstream file(filename);
+    if (!file.is_open()) return;
+    string tg, loai, chiTiet;
+    int uId, sl;
+    double tt;
+    int idx = 0;
+    while (file >> tg >> loai >> uId >> chiTiet >> sl >> tt) {
+        dsGiaoDich.push_back(GiaoDichDoanhThu(tg, loai, uId, chiTiet, sl, tt, idx++));
+    }
+    file.close();
 }

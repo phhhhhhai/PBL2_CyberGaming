@@ -8,19 +8,21 @@
 #include "../Entities/MayTram.h"
 #include "../Entities/DatLich.h"
 #include "../Entities/Order.h"
+#include "../Entities/Voucher.h"
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Vector.h"
-#include "../BLL/Queue.h"                 
+#include "../BLL/Queue.h"
+#include "../BLL/Pricing.h"
 #include <string>
 
 using namespace std;
 
 class HoaDonDTO {
 public:
-    int userId; string thoiGian; int machineId; double tongTien; int trangThai; int thanhToan;
-    HoaDonDTO() {}
-    HoaDonDTO(int u, string tg, int m, double t, int tt, int p) 
-        : userId(u), thoiGian(tg), machineId(m), tongTien(t), trangThai(tt), thanhToan(p) {}
+    int userId; string thoiGian; int machineId; double thanhTien; double giamGia; double tongTien; int trangThai; int thanhToan; int coVoucher;
+    HoaDonDTO() : userId(0), thoiGian(""), machineId(0), thanhTien(0), giamGia(0), tongTien(0), trangThai(0), thanhToan(0), coVoucher(0) {}
+    HoaDonDTO(int u, string tg, int m, double ttGoc, double gg, double t, int tt, int p, int vc = 0) 
+        : userId(u), thoiGian(tg), machineId(m), thanhTien(ttGoc), giamGia(gg), tongTien(t), trangThai(tt), thanhToan(p), coVoucher(vc) {}
 };
 
 class AdminController {
@@ -70,6 +72,17 @@ public:
     int deleteOrder(Queue<Order*>& q, int orderId);
 
     Vector<HoaDonDTO> getDanhSachHoaDon(Queue<Order*>& ordersQueue);
+
+    int tinhTongSoNgay(int d, int m, int y) const;
+    void layKhoangTuanTongKet(int vDay, int vMonth, int vYear, int vHour, int& startDays, int& endDays, int& tuanTrongThang, int& thangHienThi) const;
+    string layTieuDeBXH(int vDay, int vMonth, int vYear, int vHour) const;
+    Vector<HangXepHang> thongKeXepHangTuan(int vDay, int vMonth, int vYear, int vHour);
+    Vector<HangXepHang> layTop5BXH(int vDay, int vMonth, int vYear, int vHour);
+    int layHangHienTaiCuaKhach(int userId, int vDay, int vMonth, int vYear, int vHour, double& doanhThuTuan);
+    string dinhDangSDT(const string& phone, bool hienDayDu) const;
+    Voucher layThongTinVoucherCuaKhach(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
+    bool daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const;
+    bool coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
 };
 
 #endif

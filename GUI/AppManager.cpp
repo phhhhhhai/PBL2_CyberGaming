@@ -11,6 +11,7 @@ AppManager::AppManager() {
     popupState = 0;
     assignScroll = 0;
     isHappyHourActive = false; 
+    isVoucherApplied = false;
     secondCounter = 0.0f;
     
     FileManager::loadTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
@@ -152,11 +153,12 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
         }
     }
     else if (popupState == 0) {
-        Rectangle tabSoDo     = {10, 0, 180, 50};
-        Rectangle tabTaiKhoan = {200, 0, 180, 50};
-        Rectangle tabFnB      = {390, 0, 180, 50};
-        Rectangle tabOrder    = {580, 0, 180, 50};
-        Rectangle tabBooking  = {770, 0, 180, 50};
+        Rectangle tabSoDo     = {10, 0, 150, 50};
+        Rectangle tabTaiKhoan = {168, 0, 150, 50};
+        Rectangle tabFnB      = {326, 0, 150, 50};
+        Rectangle tabOrder    = {484, 0, 150, 50};
+        Rectangle tabBooking  = {642, 0, 150, 50};
+        Rectangle tabXepHang  = {800, 0, 155, 50};
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             if (CheckCollisionPointRec(mousePoint, {1180, 10, 130, 30})) { popupState = 15; popMsg = ""; }
@@ -193,6 +195,8 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                     else if (CheckCollisionPointRec(mousePoint, tabFnB)) currentTab = 2;
                     else if (CheckCollisionPointRec(mousePoint, tabOrder)) currentTab = 3;
                     else if (CheckCollisionPointRec(mousePoint, tabBooking)) currentTab = 4;
+                    else if (CheckCollisionPointRec(mousePoint, tabXepHang)) currentTab = 5;
+
                     if (currentTab == 0) { 
                         int boxW = 100, boxH = 120, padX = 30, padY = 40, gap = 120, offX = 270, offY = 180;
                         for (int i = 0; i < ROWS; i++) {
@@ -322,16 +326,18 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                 Rectangle tabTongQuan = {10, 0, 220, 50};
                 Rectangle tabFnB = {240, 0, 220, 50};
                 Rectangle tabCaiDat = {470, 0, 220, 50};
+                Rectangle tabBXHClient = {700, 0, 240, 50};
 
                 if (CheckCollisionPointRec(mousePoint, tabTongQuan)) currentTab = 0;
                 else if (CheckCollisionPointRec(mousePoint, tabFnB)) currentTab = 1;
                 else if (CheckCollisionPointRec(mousePoint, tabCaiDat)) currentTab = 2;
+                else if (CheckCollisionPointRec(mousePoint, tabBXHClient)) currentTab = 3;
 
                 if (currentTab == 1) {
                     Rectangle btnMenuClient = {100, 200, 400, 80}; 
                     Rectangle btnMonDaGoi = {550, 200, 400, 80}; 
                     if (CheckCollisionPointRec(mousePoint, btnMenuClient)) {
-                        popupState = 20; popMsg = ""; soLuongCartItem = 0; 
+                        popupState = 20; popMsg = ""; soLuongCartItem = 0; isVoucherApplied = false;
                     } else if (CheckCollisionPointRec(mousePoint, btnMonDaGoi)) {
                         popupState = 21; selectedBillTime = ""; 
                     }
@@ -406,11 +412,23 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 rightY += 45;
             }
 
+            bool canUseVoucher = adminCtrl->coTheDungVoucher(currentUser->getId(), ordersQueue, vDay, vMonth, vYear, vHour);
+            if (!canUseVoucher) isVoucherApplied = false;
+
+            if (canUseVoucher && !isVoucherApplied && cartList.getSize() > 0) {
+                Rectangle btnApDungVoucher = {970, 745, 250, 40};
+                if (CheckCollisionPointRec(mousePoint, btnApDungVoucher)) {
+                    isVoucherApplied = true;
+                }
+            }
+
             Rectangle btnXacNhanDat = {1280, 830, 280, 50};
             if (CheckCollisionPointRec(mousePoint, btnXacNhanDat) && cartList.getSize() > 0) {
                 string currentTime = TextFormat("%02d:%02d - %02d/%02d/%d", vHour, vMinute, vDay, vMonth, vYear);
-                int res = clientCtrl->datMon(currentUser->getUsername(), cartList, ordersQueue, currentTime);
+                bool applyNow = (canUseVoucher && isVoucherApplied);
+                int res = clientCtrl->datMon(currentUser->getUsername(), cartList, ordersQueue, currentTime, applyNow);
                 if (res == 1) {
+                    isVoucherApplied = false;
                     popMsg = "Dat mon thanh cong! Yeu cau da gui toi Admin.";
                     FileManager::saveOrders("Data/Orders.txt", ordersQueue);
                 } else popMsg = "Loi: Khong the dat mon!";
@@ -418,7 +436,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
 
             Rectangle btnDongMenu = {350, 830, 180, 50};
             if (CheckCollisionPointRec(mousePoint, btnDongMenu)) {
-                popupState = 0; popMsg = "";
+                popupState = 0; popMsg = ""; isVoucherApplied = false;
             }
         }
         else if (popupState == 13) {
@@ -819,7 +837,8 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
             currentUser, popupState, activePopInp, 
             (popupState == 12 || popupState == 22 || popupState == 23) ? selectedBillTime : popInp1, 
             (popupState == 11 || popupState == 12 || popupState == 23) ? selectedAccountUsername : popInp2, 
-            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive, adminCtrl);
+            popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive, adminCtrl,
+            vDay, vMonth, vYear, vHour, isVoucherApplied);
     }
     EndTextureMode();
 

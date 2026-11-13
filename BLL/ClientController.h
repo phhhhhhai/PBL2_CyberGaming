@@ -30,7 +30,6 @@ public:
     bool processTick(string username, double deductionAmount);
     void returnMachine(string username); 
     int validateLogin(string username, string password, int currentHour, User*& loggedInUser);
-    int datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian);
+    int datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian, bool useVoucher = false);
 };
-
 #endif

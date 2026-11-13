@@ -1,6 +1,5 @@
 #include "RaylibUI.h"
 #include "../BLL/ClientController.h"
-#include <vector>
 
 bool RaylibUI::isChangingMachine = false;
 int RaylibUI::sourceMachineId = -1;
@@ -70,7 +69,8 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
     DoublyLinkedList<User*>& dsTK, DoublyLinkedList<MonAn*>& dsMon, Queue<Order*>& ordersQueue, 
     DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
     string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg, 
-    int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl) 
+    int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl,
+    int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied) 
 {
     DrawRectangle(0, 0, 1920, 50, DARKGRAY); 
     
@@ -83,17 +83,18 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         auto drawTab = [&](Rectangle rect, const char* text, bool isActive) {
             if (isActive) {
                 DrawRectangleRec(rect, RAYWHITE);
-                DrawTextEx(font, text, {rect.x + 15, rect.y + 15}, 19, 1, BLACK);
+                DrawTextEx(font, text, {rect.x + 12, rect.y + 15}, 18, 1, BLACK);
             } else {
                 DrawRectangleRec(rect, GRAY);
-                DrawTextEx(font, text, {rect.x + 15, rect.y + 15}, 19, 1, LIGHTGRAY);
+                DrawTextEx(font, text, {rect.x + 12, rect.y + 15}, 18, 1, LIGHTGRAY);
             }
         };
-        drawTab({10, 0, 180, 50}, "1. SƠ ĐỒ", currentTab == 0);
-        drawTab({200, 0, 180, 50}, "2. TÀI KHOẢN", currentTab == 1);
-        drawTab({390, 0, 180, 50}, "3. F&B", currentTab == 2);
-        drawTab({580, 0, 180, 50}, "4. ORDER", currentTab == 3);
-        drawTab({770, 0, 180, 50}, "5. BOOKING", currentTab == 4); 
+        drawTab({10, 0, 150, 50}, "1. SƠ ĐỒ", currentTab == 0);
+        drawTab({168, 0, 150, 50}, "2. TÀI KHOẢN", currentTab == 1);
+        drawTab({326, 0, 150, 50}, "3. F&B", currentTab == 2);
+        drawTab({484, 0, 150, 50}, "4. ORDER", currentTab == 3);
+        drawTab({642, 0, 150, 50}, "5. BOOKING", currentTab == 4); 
+        drawTab({800, 0, 155, 50}, "6. XẾP HẠNG", currentTab == 5);
 
         DrawTextEx(font, "HAPPY HOUR (-30%):", {1340, 15}, 18, 1, WHITE);
         if (isHappyHourActive) {
@@ -115,6 +116,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         drawTab({10, 0, 220, 50}, "1. TỔNG QUAN", currentTab == 0);
         drawTab({240, 0, 220, 50}, "2. DỊCH VỤ F&B", currentTab == 1);
         drawTab({470, 0, 220, 50}, "3. CÀI ĐẶT", currentTab == 2);
+        drawTab({700, 0, 240, 50}, "4. BẢNG XẾP HẠNG", currentTab == 3);
     }
     DrawTextEx(font, clockStr.c_str(), {970, 15}, 20, 1, WHITE);
     DrawRectangle(1180, 10, 130, 30, ORANGE); 
@@ -230,7 +232,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
 
                 string sdtKhach = "Unknown";
                 for (Node<User*>* u = dsTK.getHead(); u != nullptr; u = u->next) {
-                        if (u->data->getId() == bills[i].userId) { 
+                    if (u->data->getId() == bills[i].userId) { 
                         sdtKhach = u->data->getUsername(); 
                         break; 
                     }
@@ -314,7 +316,35 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 startY += 45;
                 i++;
             }
-        } 
+        }
+        else if (currentTab == 5) {
+            string tieuDe = adminCtrl->layTieuDeBXH(vDay, vMonth, vYear, vHour);
+            DrawRectangle(tableX, contentY + 80, 1600, 50, DARKBLUE);
+            DrawTextEx(font, "Hạng", {tableX + 30, contentY + 95}, 22, 1, WHITE);
+            DrawTextEx(font, "ID Khách", {tableX + 200, contentY + 95}, 22, 1, WHITE);
+            DrawTextEx(font, "Số điện thoại", {tableX + 420, contentY + 95}, 22, 1, WHITE);
+            DrawTextEx(font, "Tổng chi tiêu tuần (VNĐ)", {tableX + 800, contentY + 95}, 22, 1, WHITE);
+            DrawTextEx(font, "Phần quà & Trạng thái Voucher", {tableX + 1200, contentY + 95}, 22, 1, WHITE);
+
+            Vector<HangXepHang> top5 = adminCtrl->layTop5BXH(vDay, vMonth, vYear, vHour);
+            float startY = contentY + 150;
+            if (top5.size() == 0) {
+                DrawTextEx(font, "Chưa có dữ liệu giao dịch tổng kết cho tuần này.", {tableX, startY}, 24, 1, GRAY);
+            } else {
+                for (int i = 0; i < top5.size(); i++) {
+                    if (i % 2 == 0) DrawRectangle(tableX, startY - 10, 1600, 45, LIGHTGRAY);
+                    DrawTextEx(font, TextFormat("TOP %d", top5[i].getHang()), {tableX + 30, startY}, 22, 1, (i == 0) ? RED : DARKBLUE);
+                    DrawTextEx(font, TextFormat("%d", top5[i].getUserId()), {tableX + 220, startY}, 22, 1, BLACK);
+                    DrawTextEx(font, top5[i].getSoDienThoai().c_str(), {tableX + 420, startY}, 22, 1, BLACK);
+                    DrawTextEx(font, TextFormat("%.0f VNĐ", top5[i].getTongDoanhThu()), {tableX + 800, startY}, 22, 1, BLUE);
+
+                    bool daDung = adminCtrl->daDungVoucherTrongTuan(top5[i].getUserId(), ordersQueue, vDay, vMonth, vYear, vHour);
+                    string ttVoucher = daDung ? "Voucher 10% (Đã sử dụng)" : "Voucher 10% (Còn hiệu lực)";
+                    DrawTextEx(font, ttVoucher.c_str(), {tableX + 1200, startY}, 22, 1, daDung ? ORANGE : DARKGREEN);
+                    startY += 50;
+                }
+            }
+        }
     } 
     else { 
         DrawTextEx(font, TextFormat("Xin chào: %s", currentUser->getUsername().c_str()), {100, contentY}, 35, 1, DARKBLUE);
@@ -324,14 +354,13 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
         
         DrawTextEx(font, TextFormat("Số dư hiện tại: %.0f VNĐ", currentSoDu), {100, contentY + 50}, 35, 1, BLUE);
 
-        int loaiMay = 0, idMay = -1, trangThaiMay = 0;
+        int loaiMay = 0, idMay = -1;
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 if (grid[r][c]->getCurrentClient() != nullptr && 
                     grid[r][c]->getCurrentClient()->getUsername() == currentUser->getUsername()) {
                     idMay = grid[r][c]->getId(); 
                     loaiMay = grid[r][c]->getLoaiMay(); 
-                    trangThaiMay = grid[r][c]->getTrangThai();
                 }
             }
         }
@@ -362,6 +391,50 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawRectangle(100, 200, 400, 80, GOLD);    DrawTextEx(font, "ĐỔI MẬT KHẨU", {200, 225}, 28, 1, WHITE);
             DrawRectangle(100, 300, 400, 80, RED);     DrawTextEx(font, "TRẢ MÁY", {240, 325}, 28, 1, WHITE);
         }
+        else if (currentTab == 3) {
+            string tieuDe = adminCtrl->layTieuDeBXH(vDay, vMonth, vYear, vHour);
+            DrawTextEx(font, tieuDe.c_str(), {100, contentY + 110}, 32, 1, DARKBLUE);
+
+            DrawRectangle(100, contentY + 170, 1400, 50, DARKBLUE);
+            DrawTextEx(font, "Hạng", {130, contentY + 185}, 22, 1, WHITE);
+            DrawTextEx(font, "Số điện thoại khách hàng", {350, contentY + 185}, 22, 1, WHITE);
+            DrawTextEx(font, "Tổng chi tiêu tuần (VNĐ)", {780, contentY + 185}, 22, 1, WHITE);
+            DrawTextEx(font, "Phần quà tuần", {1180, contentY + 185}, 22, 1, WHITE);
+
+            Vector<HangXepHang> top5 = adminCtrl->layTop5BXH(vDay, vMonth, vYear, vHour);
+            float startY = contentY + 235;
+            bool currentInTop5 = false;
+
+            if (top5.size() == 0) {
+                DrawTextEx(font, "Chưa có dữ liệu bảng xếp hạng cho tuần này.", {100, startY}, 24, 1, GRAY);
+            } else {
+                for (int i = 0; i < top5.size(); i++) {
+                    bool laChinhMinh = (top5[i].getUserId() == currentUser->getId());
+                    if (laChinhMinh) currentInTop5 = true;
+
+                    DrawRectangle(100, startY - 10, 1400, 45, laChinhMinh ? SKYBLUE : ((i % 2 == 0) ? LIGHTGRAY : RAYWHITE));
+                    DrawTextEx(font, TextFormat("TOP %d", top5[i].getHang()), {130, startY}, 22, 1, (i == 0) ? RED : DARKBLUE);
+
+                    string sdtHienThi = adminCtrl->dinhDangSDT(top5[i].getSoDienThoai(), laChinhMinh);
+                    DrawTextEx(font, sdtHienThi.c_str(), {350, startY}, 22, 1, BLACK);
+                    DrawTextEx(font, TextFormat("%.0f VNĐ", top5[i].getTongDoanhThu()), {780, startY}, 22, 1, BLUE);
+                    DrawTextEx(font, "Voucher giảm 10% F&B", {1180, startY}, 22, 1, DARKGREEN);
+                    startY += 50;
+                }
+            }
+
+            if (!currentInTop5) {
+                double dtCuaKhach = 0;
+                int hangHienTai = adminCtrl->layHangHienTaiCuaKhach(currentUser->getId(), vDay, vMonth, vYear, vHour, dtCuaKhach);
+                string dongChuNho = "";
+                if (hangHienTai != -1) {
+                    dongChuNho = TextFormat("Top hiện tại của bạn: Hạng %d (Chi tiêu tuần: %.0f VNĐ)", hangHienTai, dtCuaKhach);
+                } else {
+                    dongChuNho = "Top hiện tại của bạn: Chưa có hạng do chưa có giao dịch trong tuần";
+                }
+                DrawTextEx(font, dongChuNho.c_str(), {100, startY + 20}, 20, 1, MAROON);
+            }
+        }
     }
 
     if (moveNotificationTimer > 0) {
@@ -382,7 +455,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, "_", {765 + textW, y + 10}, 22, 1, BLACK);
             }
         };
-       if (popupState == 11 || popupState == 21) {
+        if (popupState == 11 || popupState == 21) {
             DrawRectangle(560, 180, 800, 600, RAYWHITE);
             DrawRectangleLinesEx({560, 180, 800, 600}, 2, DARKBLUE);
             DrawTextEx(font, popupState == 11 ? "DANH SÁCH LẦN GỌI MÓN (ADMIN)" : "LỊCH SỬ GỌI MÓN CỦA BẠN", {750, 220}, 28, 1, DARKBLUE);
@@ -395,13 +468,11 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 }
             }
 
-            std::vector<string> bills;
+            Vector<string> bills;
             for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                 if (o->data->getUserId() == targetUserId) {
                     string tg = o->data->getThoiGian();
-                    bool exists = false;
-                    for (string b : bills) if (b == tg) { exists = true; break; }
-                    if (!exists) bills.push_back(tg);
+                    if (!bills.contains(tg)) bills.push_back(tg);
                 }
             }
 
@@ -412,16 +483,15 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawTextEx(font, "Thao tác", {1130, 290}, 20, 1, WHITE);
 
             float bY = 330;
-            for (size_t i = 0; i < bills.size(); i++) {
+            for (int i = 0; i < bills.size(); i++) {
                 DrawRectangle(600, bY - 5, 720, 40, (i % 2 == 0) ? LIGHTGRAY : RAYWHITE);
                 DrawTextEx(font, TextFormat("%d", i + 1), {620, bY + 5}, 20, 1, BLACK);
                 DrawTextEx(font, bills[i].c_str(), {700, bY + 5}, 20, 1, BLACK);
                 
-                // --- SỬA Ở ĐÂY: Lấy trực tiếp machineId từ order thuộc bill đó ---
                 int machineId = -1;
                 for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                     if (o->data->getUserId() == targetUserId && o->data->getThoiGian() == bills[i]) {
-                        machineId = o->data->getMachineId(); // Lấy đúng ID máy lúc gọi đơn này
+                        machineId = o->data->getMachineId();
                         break;
                     }
                 }
@@ -434,7 +504,6 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             }
             DrawRectangle(900, 700, 150, 45, GRAY); DrawTextEx(font, "ĐÓNG", {940, 712}, 22, 1, WHITE);
         } 
-        
         else if (popupState == 12 || popupState == 22 || popupState == 23) {
             DrawRectangle(510, 150, 900, 700, RAYWHITE);
             DrawRectangleLinesEx({510, 150, 900, 700}, 2, DARKBLUE);
@@ -451,10 +520,10 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 }
             }
 
-           int billMachineId = -1;
+            int billMachineId = -1;
             for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                 if (o->data->getUserId() == targetUserId && o->data->getThoiGian() == p1) {
-                    billMachineId = o->data->getMachineId(); // Lấy cố định theo đơn hàng
+                    billMachineId = o->data->getMachineId();
                     break;
                 }
             }
@@ -477,7 +546,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, "Thao tác", {1180, 290}, 20, 1, DARKGRAY);
             }
 
-            float cY = 340; int i = 0; double tongCong = 0; bool allDelivered = true;
+            float cY = 340; int i = 0; double thanhTienGoc = 0; bool allDelivered = true; int billCoVoucher = 0;
 
             for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                 if (o->data->getUserId() == targetUserId && o->data->getThoiGian() == p1) { 
@@ -489,7 +558,8 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                             break;
                         }
                     }
-                    tongCong += gia;
+                    thanhTienGoc += gia;
+                    if (o->data->getVoucherUsed() == 1) billCoVoucher = 1;
                     if (o->data->getStatus() == 0) allDelivered = false;
 
                     DrawTextEx(font, TextFormat("%d", i + 1), {550, cY}, 20, 1, BLACK);
@@ -509,9 +579,22 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 }
             }
 
-            DrawLineEx({550, 680}, {1350, 680}, 2, LIGHTGRAY);
-            DrawTextEx(font, "TỔNG CỘNG:", {550, 710}, 24, 1, BLACK);
-            DrawTextEx(font, TextFormat("%.0f VNĐ", tongCong), {900, 710}, 24, 1, RED);
+            GiaHoaDon* boTinhBill = (billCoVoucher == 1)
+                ? static_cast<GiaHoaDon*>(new GiaHoaDonVoucher10())
+                : static_cast<GiaHoaDon*>(new GiaHoaDonGoc());
+            double tienGiam = boTinhBill->tinhGiamGia(thanhTienGoc);
+            double tongSauGiam = boTinhBill->tinhTongCong(thanhTienGoc);
+            delete boTinhBill;
+
+            DrawLineEx({550, 650}, {1350, 650}, 2, LIGHTGRAY);
+            DrawTextEx(font, "THÀNH TIỀN:", {550, 665}, 22, 1, BLACK);
+            DrawTextEx(font, TextFormat("%.0f VNĐ", thanhTienGoc), {900, 665}, 22, 1, BLUE);
+
+            DrawTextEx(font, "GIẢM GIÁ VOUCHER:", {550, 700}, 22, 1, DARKGREEN);
+            DrawTextEx(font, TextFormat("-%.0f VNĐ", tienGiam), {900, 700}, 22, 1, DARKGREEN);
+
+            DrawTextEx(font, "TỔNG CỘNG:", {550, 735}, 24, 1, BLACK);
+            DrawTextEx(font, TextFormat("%.0f VNĐ", tongSauGiam), {900, 735}, 24, 1, RED);
 
             if (popupState == 12) {
                 DrawRectangle(600, 780, 150, 50, GRAY); DrawTextEx(font, "ĐÓNG", {645, 795}, 22, 1, WHITE);
@@ -579,7 +662,30 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 cIdx++;
             }
 
-            DrawTextEx(font, TextFormat("TỔNG CỘNG:  %.0f VNĐ", tongTienCart), {970, 730}, 25, 1, RED);
+            bool canUseVoucher = adminCtrl->coTheDungVoucher(currentUser->getId(), ordersQueue, vDay, vMonth, vYear, vHour);
+
+            if (canUseVoucher && isVoucherApplied && cartList.getSize() > 0) {
+                GiaHoaDon* boTinh = new GiaHoaDonVoucher10();
+                double giamGia = boTinh->tinhGiamGia(tongTienCart);
+                double tongSauGiam = boTinh->tinhTongCong(tongTienCart);
+                delete boTinh;
+
+                DrawRectangle(970, 690, 320, 34, LIGHTGRAY);
+                DrawTextEx(font, TextFormat("Thành tiền: %.0f VNĐ", tongTienCart), {980, 696}, 20, 1, BLACK);
+
+                DrawRectangle(970, 730, 320, 34, LIGHTGRAY);
+                DrawTextEx(font, TextFormat("Giảm giá voucher: -%.0f VNĐ", giamGia), {980, 736}, 20, 1, DARKGREEN);
+
+                DrawRectangle(970, 770, 320, 38, GOLD);
+                DrawTextEx(font, TextFormat("Tổng cộng: %.0f VNĐ", tongSauGiam), {980, 777}, 22, 1, RED);
+            } else {
+                DrawTextEx(font, TextFormat("TỔNG CỘNG:  %.0f VNĐ", tongTienCart), {970, 705}, 25, 1, RED);
+                if (canUseVoucher && cartList.getSize() > 0) {
+                    Rectangle btnApDungVoucher = {970, 745, 250, 40};
+                    DrawRectangleRec(btnApDungVoucher, ORANGE);
+                    DrawTextEx(font, "Áp dụng voucher", {btnApDungVoucher.x + 35, btnApDungVoucher.y + 9}, 20, 1, WHITE);
+                }
+            }
 
             Rectangle btnDongMenu = {350, 830, 180, 50};
             DrawRectangleRec(btnDongMenu, GRAY);
@@ -610,13 +716,13 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawRectangleLines(700, 250, 520, 330, DARKBLUE);
             DrawTextEx(font, TextFormat("BẢNG ĐIỀU KHIỂN MÁY %d", selectedMachine), {800, 280}, 28, 1, DARKBLUE);
 
-            string sUser = ""; double sSoDu = 0; int sStatus = 0; int sLoai = 0;
+            string sUser = ""; double sSoDu = 0; int sLoai = 0;
             for(int r=0;r<ROWS;r++) for(int c=0;c<COLS;c++) if(grid[r][c]->getId() == selectedMachine) {
                 if (grid[r][c]->getCurrentClient()) {
                     sUser = grid[r][c]->getCurrentClient()->getUsername();
                     sSoDu = grid[r][c]->getCurrentClient()->getSoDu();
                 }
-                sStatus = grid[r][c]->getTrangThai(); sLoai = grid[r][c]->getLoaiMay();
+                sLoai = grid[r][c]->getLoaiMay();
             }
 
             DrawTextEx(font, TextFormat("Khách hàng: %s", sUser.c_str()), {750, 340}, 25, 1, BLACK);
@@ -668,7 +774,6 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
 
             if (!pMsg.empty()) DrawTextEx(font, pMsg.c_str(), {500, 550}, 20, 1, RED);
             
-            // Nút bấm riêng cho popup Đặt lịch (Y=700)
             DrawRectangle(800, 700, 150, 45, GRAY); DrawTextEx(font, "HỦY", {845, 712}, 22, 1, WHITE);
             DrawRectangle(970, 700, 150, 45, DARKBLUE); DrawTextEx(font, "XÁC NHẬN", {985, 712}, 22, 1, WHITE);
         }
@@ -748,7 +853,6 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
 
             if (!pMsg.empty()) DrawTextEx(font, pMsg.c_str(), {750, 600}, 20, 1, RED);
             
-            // Nút bấm chung cho các popup 1 đến 9 (Y=650)
             DrawRectangle(800, 650, 150, 50, GRAY); DrawTextEx(font, "HỦY", {845, 662}, 25, 1, WHITE);
             DrawRectangle(970, 650, 150, 50, DARKBLUE); DrawTextEx(font, "XÁC NHẬN", {985, 662}, 25, 1, WHITE);
         }
