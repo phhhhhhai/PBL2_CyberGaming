@@ -70,7 +70,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
     DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
     string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg, 
     int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl,
-    int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied) 
+    int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied, string selectedDoanhThuNgay, int doanhThuScroll) 
 {
     DrawRectangle(0, 0, 1920, 50, DARKGRAY); 
     
@@ -89,12 +89,13 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, text, {rect.x + 12, rect.y + 15}, 18, 1, LIGHTGRAY);
             }
         };
-        drawTab({10, 0, 150, 50}, "1. SƠ ĐỒ", currentTab == 0);
-        drawTab({168, 0, 150, 50}, "2. TÀI KHOẢN", currentTab == 1);
-        drawTab({326, 0, 150, 50}, "3. F&B", currentTab == 2);
-        drawTab({484, 0, 150, 50}, "4. ORDER", currentTab == 3);
-        drawTab({642, 0, 150, 50}, "5. BOOKING", currentTab == 4); 
-        drawTab({800, 0, 155, 50}, "6. XẾP HẠNG", currentTab == 5);
+        drawTab({10, 0, 125, 50}, "1. SƠ ĐỒ", currentTab == 0);
+        drawTab({137, 0, 145, 50}, "2. TÀI KHOẢN", currentTab == 1);
+        drawTab({284, 0, 110, 50}, "3. F&B", currentTab == 2);
+        drawTab({396, 0, 125, 50}, "4. ORDER", currentTab == 3);
+        drawTab({523, 0, 135, 50}, "5. BOOKING", currentTab == 4); 
+        drawTab({660, 0, 140, 50}, "6. XẾP HẠNG", currentTab == 5);
+        drawTab({802, 0, 150, 50}, "7. DOANH THU", currentTab == 6);
 
         DrawTextEx(font, "HAPPY HOUR (-30%):", {1340, 15}, 18, 1, WHITE);
         if (isHappyHourActive) {
@@ -343,6 +344,56 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                     DrawTextEx(font, ttVoucher.c_str(), {tableX + 1200, startY}, 22, 1, daDung ? ORANGE : DARKGREEN);
                     startY += 50;
                 }
+            }
+        }
+        else if (currentTab == 6) {
+            DrawTextEx(font, "TỔNG KẾT DOANH THU (DÒNG TIỀN THỰC THU)", {100, contentY}, 35, 1, DARKBLUE);
+            
+            DrawRectangle(100, contentY + 50, 310, 650, DARKBLUE);
+            DrawTextEx(font, "CHỌN NGÀY", {190, contentY + 65}, 25, 1, WHITE);
+            
+            Vector<string> dsNgay = adminCtrl->layDanhSachNgayCoDoanhThu();
+            float listY = contentY + 110;
+            int count = 0;
+            for (int i = 0; i < dsNgay.size(); i++) {
+                if (count >= doanhThuScroll && count < doanhThuScroll + 10) {
+                    bool isSelected = (dsNgay[i] == selectedDoanhThuNgay);
+                    DrawRectangle(110, listY, 290, 45, isSelected ? SKYBLUE : LIGHTGRAY);
+                    
+                    string ngayFormat = dsNgay[i].substr(6, 2) + "/" + dsNgay[i].substr(4, 2) + "/" + dsNgay[i].substr(0, 4);
+                    DrawTextEx(font, ngayFormat.c_str(), {160, listY + 10}, 22, 1, BLACK);
+                    listY += 50;
+                }
+                count++;
+            }
+            DrawRectangle(350, contentY + 60, 40, 30, GRAY); DrawTextEx(font, "/\\", {360, contentY + 65}, 18, 1, WHITE);
+            DrawRectangle(350, contentY + 660, 40, 30, GRAY); DrawTextEx(font, "\\/", {360, contentY + 665}, 18, 1, WHITE);
+
+            if (!selectedDoanhThuNgay.empty()) {
+                string ngayFormat = selectedDoanhThuNgay.substr(6, 2) + "/" + selectedDoanhThuNgay.substr(4, 2) + "/" + selectedDoanhThuNgay.substr(0, 4);
+                DrawTextEx(font, TextFormat("CHI TIẾT GIAO DỊCH NGÀY: %s", ngayFormat.c_str()), {450, contentY + 50}, 28, 1, DARKBLUE);
+
+                DoanhThuNgayDTO dt = adminCtrl->thongKeDoanhThuNgay(selectedDoanhThuNgay);
+
+                DrawRectangle(450, contentY + 110, 400, 150, SKYBLUE);
+                DrawTextEx(font, "NẠP TÀI KHOẢN (NAP)", {470, contentY + 130}, 22, 1, DARKBLUE);
+                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongNap), {470, contentY + 180}, 40, 1, BLACK);
+
+                DrawRectangle(880, contentY + 110, 400, 150, ORANGE);
+                DrawTextEx(font, "ĐẶT LỊCH (BOK)", {900, contentY + 130}, 22, 1, WHITE);
+                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongBooking), {900, contentY + 180}, 40, 1, WHITE);
+
+                DrawRectangle(1310, contentY + 110, 400, 150, GOLD);
+                DrawTextEx(font, "DỊCH VỤ F&B", {1330, contentY + 130}, 22, 1, DARKBLUE);
+                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongFnB), {1330, contentY + 180}, 40, 1, BLACK);
+
+                DrawRectangle(450, contentY + 300, 1260, 200, RED);
+                DrawTextEx(font, "TỔNG THỰC THU TRONG NGÀY (TOTAL CASH IN)", {480, contentY + 340}, 30, 1, WHITE);
+                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.getTongDoanhThu()), {480, contentY + 400}, 60, 1, YELLOW);
+                
+                DrawTextEx(font, "* Báo cáo chỉ cộng dồn dòng tiền thực thu (Cash Flow) theo lịch sử giao dịch. Chưa bao gồm tiền điện năng/chi phí cố định.", {450, contentY + 530}, 20, 1, DARKGRAY);
+            } else {
+                DrawTextEx(font, "<-- Vui lòng chọn một ngày từ danh sách bên trái.", {450, contentY + 100}, 25, 1, GRAY);
             }
         }
     } 

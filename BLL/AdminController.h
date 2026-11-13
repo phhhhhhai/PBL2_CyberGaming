@@ -17,6 +17,17 @@
 
 using namespace std;
 
+class DoanhThuNgayDTO {
+public:
+    string ngay;
+    double tongNap;
+    double tongBooking;
+    double tongFnB;
+
+    DoanhThuNgayDTO(string n = "") : ngay(n), tongNap(0), tongBooking(0), tongFnB(0) {}
+    double getTongDoanhThu() const { return tongNap + tongBooking + tongFnB; }
+};
+
 class HoaDonDTO {
 public:
     int userId; string thoiGian; int machineId; double thanhTien; double giamGia; double tongTien; int trangThai; int thanhToan; int coVoucher;
@@ -83,6 +94,9 @@ public:
     Voucher layThongTinVoucherCuaKhach(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
     bool daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const;
     bool coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
+
+    Vector<string> layDanhSachNgayCoDoanhThu();
+    DoanhThuNgayDTO thongKeDoanhThuNgay(string ngayYYYYMMDD);
 };
 
 #endif

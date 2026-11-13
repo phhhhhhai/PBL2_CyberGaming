@@ -33,7 +33,7 @@ public:
         DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
         string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg,
         int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl,
-        int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied);
+        int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied, string selectedDoanhThuNgay, int doanhThuScroll);
     static void drawGrid2D(Font font, MayTram* grid[ROWS][COLS], int offsetX, int offsetY);
 
     static void transferMachineData(MayTram grid[ROWS][COLS], int srcId, int destId, const string& filename);

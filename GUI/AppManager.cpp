@@ -153,12 +153,13 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
         }
     }
     else if (popupState == 0) {
-        Rectangle tabSoDo     = {10, 0, 150, 50};
-        Rectangle tabTaiKhoan = {168, 0, 150, 50};
-        Rectangle tabFnB      = {326, 0, 150, 50};
-        Rectangle tabOrder    = {484, 0, 150, 50};
-        Rectangle tabBooking  = {642, 0, 150, 50};
-        Rectangle tabXepHang  = {800, 0, 155, 50};
+        Rectangle tabSoDo     = {10, 0, 125, 50};
+        Rectangle tabTaiKhoan = {137, 0, 145, 50};
+        Rectangle tabFnB      = {284, 0, 110, 50};
+        Rectangle tabOrder    = {396, 0, 125, 50};
+        Rectangle tabBooking  = {523, 0, 135, 50};
+        Rectangle tabXepHang  = {660, 0, 140, 50};
+        Rectangle tabDoanhThu = {802, 0, 150, 50};
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             if (CheckCollisionPointRec(mousePoint, {1180, 10, 130, 30})) { popupState = 15; popMsg = ""; }
@@ -196,6 +197,7 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                     else if (CheckCollisionPointRec(mousePoint, tabOrder)) currentTab = 3;
                     else if (CheckCollisionPointRec(mousePoint, tabBooking)) currentTab = 4;
                     else if (CheckCollisionPointRec(mousePoint, tabXepHang)) currentTab = 5;
+                    else if (CheckCollisionPointRec(mousePoint, tabDoanhThu)) currentTab = 6;
 
                     if (currentTab == 0) { 
                         int boxW = 100, boxH = 120, padX = 30, padY = 40, gap = 120, offX = 270, offY = 180;
@@ -216,6 +218,26 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                                     }
                                 }
                             }
+                        }
+                    }
+                    else if (currentTab == 6) {
+                        if (CheckCollisionPointRec(mousePoint, {350, 160, 40, 30})) doanhThuScroll--;
+                        if (CheckCollisionPointRec(mousePoint, {350, 760, 40, 30})) doanhThuScroll++;
+                        if (doanhThuScroll < 0) doanhThuScroll = 0;
+                        
+                        Vector<string> dsNgay = adminCtrl->layDanhSachNgayCoDoanhThu();
+                        if (doanhThuScroll > dsNgay.size() - 10 && dsNgay.size() > 10) doanhThuScroll = dsNgay.size() - 10;
+                        
+                        float listY = 210;
+                        int count = 0;
+                        for (int i = 0; i < dsNgay.size(); i++) {
+                            if (count >= doanhThuScroll && count < doanhThuScroll + 10) {
+                                if (CheckCollisionPointRec(mousePoint, {110, listY, 280, 45})) {
+                                    selectedDoanhThuNgay = dsNgay[i]; 
+                                }
+                                listY += 50;
+                            }
+                            count++;
                         }
                     }
                     else if (currentTab == 1) { 
@@ -838,7 +860,7 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
             (popupState == 12 || popupState == 22 || popupState == 23) ? selectedBillTime : popInp1, 
             (popupState == 11 || popupState == 12 || popupState == 23) ? selectedAccountUsername : popInp2, 
             popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive, adminCtrl,
-            vDay, vMonth, vYear, vHour, isVoucherApplied);
+            vDay, vMonth, vYear, vHour, isVoucherApplied, selectedDoanhThuNgay, doanhThuScroll);
     }
     EndTextureMode();
 

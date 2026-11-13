@@ -71,6 +71,9 @@ private:
     void processPopup(Vector2 mousePoint);
     void processKeyboard();
     void drawScreen(Font appFont, RenderTexture2D target);
+
+    string selectedDoanhThuNgay = "";
+    int doanhThuScroll = 0;
 public:
     AppManager();
     ~AppManager();

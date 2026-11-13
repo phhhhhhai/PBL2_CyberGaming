@@ -901,3 +901,54 @@ bool AdminController::coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, i
     int ngayHienTai = tinhTongSoNgay(vDay, vMonth, vYear);
     return vc.conHieuLuc(ngayHienTai);
 }
+
+Vector<string> AdminController::layDanhSachNgayCoDoanhThu() {
+    Vector<string> dsNgay;
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+    
+    for (int i = 0; i < dsLog.size(); i++) {
+        string tg = dsLog[i].getThoiGian();
+        if (tg.length() >= 8) {
+            string ngay = tg.substr(0, 8); 
+            if (!dsNgay.contains(ngay)) {
+                dsNgay.push_back(ngay);
+            }
+        }
+    }
+    
+    for (int i = 0; i < dsNgay.size() - 1; i++) {
+        for (int j = i + 1; j < dsNgay.size(); j++) {
+            if (dsNgay[j] > dsNgay[i]) {
+                string tmp = dsNgay[i];
+                dsNgay[i] = dsNgay[j];
+                dsNgay[j] = tmp;
+            }
+        }
+    }
+    return dsNgay;
+}
+
+DoanhThuNgayDTO AdminController::thongKeDoanhThuNgay(string ngayYYYYMMDD) {
+    DoanhThuNgayDTO kq(ngayYYYYMMDD);
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+
+    for (int i = 0; i < dsLog.size(); i++) {
+        string tg = dsLog[i].getThoiGian();
+        if (tg.length() >= 8 && tg.substr(0, 8) == ngayYYYYMMDD) {
+            string loai = dsLog[i].getLoai();
+            
+            if (loai == "NAP") {
+                kq.tongNap += dsLog[i].getThanhTien();
+            } 
+            else if (loai == "BOK") {
+                kq.tongBooking += dsLog[i].getThanhTien();
+            } 
+            else if (loai == "FNB") {
+                kq.tongFnB += dsLog[i].getThanhTien();
+            }
+        }
+    }
+    return kq;
+}
