@@ -736,6 +736,39 @@ string AdminController::layTieuDeBXH(int vDay, int vMonth, int vYear, int vHour)
     return "BẢNG XẾP HẠNG TUẦN " + to_string(tuan) + " THÁNG " + to_string(thang);
 }
 
+static void quickSortBXH(Vector<HangXepHang>& arr, int low, int high) {
+    if (low < high) {
+        HangXepHang pivot = arr[high];
+        int i = (low - 1);
+        for (int j = low; j <= high - 1; j++) {
+            bool swapNeeded = false;
+            if (arr[j].getTongDoanhThu() > pivot.getTongDoanhThu()) {
+                swapNeeded = true;
+            } 
+            else if (arr[j].getTongDoanhThu() == pivot.getTongDoanhThu()) {
+                if (arr[j].getMocDatCuoi() < pivot.getMocDatCuoi()) {
+                    swapNeeded = true;
+                }
+            }
+            
+            if (swapNeeded) {
+                i++;
+                HangXepHang temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+        HangXepHang temp = arr[i + 1];
+        arr[i + 1] = arr[high];
+        arr[high] = temp;
+        
+        int pi = i + 1;
+        
+        quickSortBXH(arr, low, pi - 1);
+        quickSortBXH(arr, pi + 1, high);
+    }
+}
+
 Vector<HangXepHang> AdminController::thongKeXepHangTuan(int vDay, int vMonth, int vYear, int vHour) {
     Vector<HangXepHang> danhSach;
     int startDays = -1, endDays = -1, tuan = 0, thang = 0;
@@ -775,22 +808,8 @@ Vector<HangXepHang> AdminController::thongKeXepHangTuan(int vDay, int vMonth, in
         }
     }
 
-    for (int i = 0; i < danhSach.size() - 1; i++) {
-        for (int j = i + 1; j < danhSach.size(); j++) {
-            bool doiCho = false;
-            if (danhSach[j].getTongDoanhThu() > danhSach[i].getTongDoanhThu()) {
-                doiCho = true;
-            } else if (danhSach[j].getTongDoanhThu() == danhSach[i].getTongDoanhThu()) {
-                if (danhSach[j].getMocDatCuoi() < danhSach[i].getMocDatCuoi()) {
-                    doiCho = true;
-                }
-            }
-            if (doiCho) {
-                HangXepHang tmp = danhSach[i];
-                danhSach[i] = danhSach[j];
-                danhSach[j] = tmp;
-            }
-        }
+    if (danhSach.size() > 1) {
+        quickSortBXH(danhSach, 0, danhSach.size() - 1);
     }
 
     for (int i = 0; i < danhSach.size(); i++) {
