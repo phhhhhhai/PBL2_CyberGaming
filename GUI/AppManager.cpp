@@ -197,7 +197,15 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                     else if (CheckCollisionPointRec(mousePoint, tabOrder)) currentTab = 3;
                     else if (CheckCollisionPointRec(mousePoint, tabBooking)) currentTab = 4;
                     else if (CheckCollisionPointRec(mousePoint, tabXepHang)) currentTab = 5;
-                    else if (CheckCollisionPointRec(mousePoint, tabDoanhThu)) currentTab = 6;
+                    else if (CheckCollisionPointRec(mousePoint, tabDoanhThu)) {
+                        if (currentTab != 6) {
+                            currentTab = 6;
+                            dsMocDoanhThu = adminCtrl->layDanhSachMocDoanhThu(doanhThuMode);
+                            if (!selectedDoanhThuMoc.empty()) {
+                                dtTongHop = adminCtrl->thongKeDoanhThuChiTiet(selectedDoanhThuMoc, doanhThuMode);
+                            }
+                        }
+                    }
 
                     if (currentTab == 0) { 
                         int boxW = 100, boxH = 120, padX = 30, padY = 40, gap = 120, offX = 270, offY = 180;
@@ -221,24 +229,45 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         }
                     }
                     else if (currentTab == 6) {
-                        if (CheckCollisionPointRec(mousePoint, {350, 160, 40, 30})) doanhThuScroll--;
-                        if (CheckCollisionPointRec(mousePoint, {350, 760, 40, 30})) doanhThuScroll++;
+                        Rectangle btnNgay = {110, 210, 70, 30};
+                        Rectangle btnTuan = {185, 210, 70, 30};
+                        Rectangle btnThang = {260, 210, 70, 30};
+                        Rectangle btnNam = {335, 210, 70, 30};
+                        
+                        bool changedMode = false;
+                        if (CheckCollisionPointRec(mousePoint, btnNgay)) { doanhThuMode = 0; changedMode = true; }
+                        else if (CheckCollisionPointRec(mousePoint, btnTuan)) { doanhThuMode = 1; changedMode = true; }
+                        else if (CheckCollisionPointRec(mousePoint, btnThang)) { doanhThuMode = 2; changedMode = true; }
+                        else if (CheckCollisionPointRec(mousePoint, btnNam)) { doanhThuMode = 3; changedMode = true; }
+                        
+                        if (changedMode) { 
+                            selectedDoanhThuMoc = ""; doanhThuScroll = 0; breakdownScroll = 0; 
+                            dsMocDoanhThu = adminCtrl->layDanhSachMocDoanhThu(doanhThuMode);
+                            dtTongHop = DoanhThuTongHop();
+                        }
+
+                        if (CheckCollisionPointRec(mousePoint, {420, 250, 30, 30})) doanhThuScroll--;
+                        if (CheckCollisionPointRec(mousePoint, {420, 780, 30, 30})) doanhThuScroll++;
                         if (doanhThuScroll < 0) doanhThuScroll = 0;
+                        if (doanhThuScroll > dsMocDoanhThu.size() - 10 && dsMocDoanhThu.size() > 10) doanhThuScroll = dsMocDoanhThu.size() - 10;
                         
-                        Vector<string> dsNgay = adminCtrl->layDanhSachNgayCoDoanhThu();
-                        if (doanhThuScroll > dsNgay.size() - 10 && dsNgay.size() > 10) doanhThuScroll = dsNgay.size() - 10;
-                        
-                        float listY = 210;
+                        float listY = 250; 
                         int count = 0;
-                        for (int i = 0; i < dsNgay.size(); i++) {
+                        for (int i = 0; i < dsMocDoanhThu.size(); i++) {
                             if (count >= doanhThuScroll && count < doanhThuScroll + 10) {
-                                if (CheckCollisionPointRec(mousePoint, {110, listY, 280, 45})) {
-                                    selectedDoanhThuNgay = dsNgay[i]; 
+                                if (CheckCollisionPointRec(mousePoint, {110, listY, 300, 45})) {
+                                    selectedDoanhThuMoc = dsMocDoanhThu[i].tieuDeGoc;
+                                    breakdownScroll = 0;
+                                    dtTongHop = adminCtrl->thongKeDoanhThuChiTiet(selectedDoanhThuMoc, doanhThuMode);
                                 }
                                 listY += 50;
                             }
                             count++;
                         }
+                        
+                        if (CheckCollisionPointRec(mousePoint, {1630, 480, 30, 30})) breakdownScroll--;
+                        if (CheckCollisionPointRec(mousePoint, {1630, 780, 30, 30})) breakdownScroll++;
+                        if (breakdownScroll < 0) breakdownScroll = 0;
                     }
                     else if (currentTab == 1) { 
                         if (CheckCollisionPointRec(mousePoint, {1560, 120, 150, 40})) {
@@ -860,7 +889,8 @@ void AppManager::drawScreen(Font appFont, RenderTexture2D target) {
             (popupState == 12 || popupState == 22 || popupState == 23) ? selectedBillTime : popInp1, 
             (popupState == 11 || popupState == 12 || popupState == 23) ? selectedAccountUsername : popInp2, 
             popInp3, popInp4, popInp5, popInp6, popInp7, popMsg, assignScroll, selectedMachine, isHappyHourActive, adminCtrl,
-            vDay, vMonth, vYear, vHour, isVoucherApplied, selectedDoanhThuNgay, doanhThuScroll);
+            vDay, vMonth, vYear, vHour, isVoucherApplied, doanhThuMode, selectedDoanhThuMoc, doanhThuScroll, breakdownScroll, 
+            dsMocDoanhThu, dtTongHop);
     }
     EndTextureMode();
 

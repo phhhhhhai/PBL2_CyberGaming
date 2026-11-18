@@ -902,51 +902,131 @@ bool AdminController::coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, i
     return vc.conHieuLuc(ngayHienTai);
 }
 
-Vector<string> AdminController::layDanhSachNgayCoDoanhThu() {
-    Vector<string> dsNgay;
+string AdminController::formatMocDoanhThu(string goc, int mode) const {
+    if (goc.empty()) return "";
+    try {
+        if (mode == 0 && goc.length() >= 8) { 
+            return goc.substr(6, 2) + "/" + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 1 && goc.length() >= 7) { 
+            return "Tuần " + goc.substr(6, 1) + " - " + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 2 && goc.length() >= 6) {
+            return "Tháng " + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 3 && goc.length() >= 4) { 
+            return "Năm " + goc.substr(0, 4);
+        }
+    } catch (...) {}
+    return goc;
+}
+
+Vector<PhieuDoanhThu> AdminController::layDanhSachMocDoanhThu(int mode) {
+    Vector<string> dsMoc;
     Vector<GiaoDichDoanhThu> dsLog;
     FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
     
     for (int i = 0; i < dsLog.size(); i++) {
         string tg = dsLog[i].getThoiGian();
         if (tg.length() >= 8) {
-            string ngay = tg.substr(0, 8); 
-            if (!dsNgay.contains(ngay)) {
-                dsNgay.push_back(ngay);
+            string key = "";
+            if (mode == 0) key = tg.substr(0, 8);
+            else if (mode == 1) { 
+                int d = stoi(tg.substr(6, 2));
+                int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+                key = tg.substr(0, 6) + to_string(w);
             }
+            else if (mode == 2) key = tg.substr(0, 6); 
+            else if (mode == 3) key = tg.substr(0, 4);
+
+            if (!dsMoc.contains(key)) dsMoc.push_back(key);
         }
     }
     
-    for (int i = 0; i < dsNgay.size() - 1; i++) {
-        for (int j = i + 1; j < dsNgay.size(); j++) {
-            if (dsNgay[j] > dsNgay[i]) {
-                string tmp = dsNgay[i];
-                dsNgay[i] = dsNgay[j];
-                dsNgay[j] = tmp;
+    for (int i = 0; i < dsMoc.size() - 1; i++) {
+        for (int j = i + 1; j < dsMoc.size(); j++) {
+            if (dsMoc[j] > dsMoc[i]) {
+                string tmp = dsMoc[i]; dsMoc[i] = dsMoc[j]; dsMoc[j] = tmp;
             }
         }
     }
-    return dsNgay;
+
+    Vector<PhieuDoanhThu> kq;
+    for (int i = 0; i < dsMoc.size(); i++) {
+        kq.push_back(PhieuDoanhThu(dsMoc[i], formatMocDoanhThu(dsMoc[i], mode)));
+    }
+    
+    return kq;
 }
 
-DoanhThuNgayDTO AdminController::thongKeDoanhThuNgay(string ngayYYYYMMDD) {
-    DoanhThuNgayDTO kq(ngayYYYYMMDD);
+DoanhThuTongHop AdminController::thongKeDoanhThuChiTiet(string mocGoc, int mode) {
+    DoanhThuTongHop kq;
+    kq.tongKet.tieuDeGoc = mocGoc;
+    kq.tongKet.tieuDeHienThi = formatMocDoanhThu(mocGoc, mode);
+    
     Vector<GiaoDichDoanhThu> dsLog;
     FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
 
     for (int i = 0; i < dsLog.size(); i++) {
         string tg = dsLog[i].getThoiGian();
-        if (tg.length() >= 8 && tg.substr(0, 8) == ngayYYYYMMDD) {
+        if (tg.length() < 8) continue;
+
+        string keyLog = "";
+        if (mode == 0) keyLog = tg.substr(0, 8);
+        else if (mode == 1) {
+            int d = stoi(tg.substr(6, 2));
+            int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+            keyLog = tg.substr(0, 6) + to_string(w);
+        }
+        else if (mode == 2) keyLog = tg.substr(0, 6);
+        else if (mode == 3) keyLog = tg.substr(0, 4);
+
+        if (keyLog == mocGoc) { 
             string loai = dsLog[i].getLoai();
+            double tien = dsLog[i].getThanhTien();
             
-            if (loai == "NAP") {
-                kq.tongNap += dsLog[i].getThanhTien();
+            if (loai == "NAP") kq.tongKet.tongNap += tien;
+            else if (loai == "BOK") kq.tongKet.tongBooking += tien;
+            else if (loai == "FNB") kq.tongKet.tongFnB += tien;
+
+            string childKey = "", childTitle = "";
+            if (mode == 0) {
+                childKey = tg; 
+                childTitle = tg.length() >= 13 ? (tg.substr(9, 2) + ":" + tg.substr(11, 2) + " - " + loai) : loai;
             } 
-            else if (loai == "BOK") {
-                kq.tongBooking += dsLog[i].getThanhTien();
-            } 
-            else if (loai == "FNB") {
-                kq.tongFnB += dsLog[i].getThanhTien();
+            else if (mode == 1) { 
+                childKey = tg.substr(0, 8); childTitle = formatMocDoanhThu(childKey, 0);
+            }
+            else if (mode == 2) { 
+                int d = stoi(tg.substr(6, 2));
+                int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+                childKey = tg.substr(0, 6) + to_string(w); 
+                childTitle = formatMocDoanhThu(childKey, 1);
+            }
+            else if (mode == 3) { 
+                childKey = tg.substr(0, 6); 
+                childTitle = formatMocDoanhThu(childKey, 2);
+            }
+
+            int foundIdx = -1;
+            for (int j = 0; j < kq.chiTiet.size(); j++) {
+                if (kq.chiTiet[j].tieuDeGoc == childKey) { foundIdx = j; break; }
+            }
+            
+            if (foundIdx == -1) {
+                if (mode == 0 && loai == "FNB") childTitle = dsLog[i].getChiTiet(); 
+                PhieuDoanhThu p(childKey, childTitle);
+                kq.chiTiet.push_back(p);
+                foundIdx = kq.chiTiet.size() - 1;
+            }
+            
+            if (loai == "NAP") kq.chiTiet[foundIdx].tongNap += tien;
+            else if (loai == "BOK") kq.chiTiet[foundIdx].tongBooking += tien;
+            else if (loai == "FNB") kq.chiTiet[foundIdx].tongFnB += tien;
+        }
+    }
+    
+    for (int i = 0; i < kq.chiTiet.size() - 1; i++) {
+        for (int j = i + 1; j < kq.chiTiet.size(); j++) {
+            if (kq.chiTiet[j].tieuDeGoc > kq.chiTiet[i].tieuDeGoc) {
+                PhieuDoanhThu tmp = kq.chiTiet[i]; kq.chiTiet[i] = kq.chiTiet[j]; kq.chiTiet[j] = tmp;
             }
         }
     }

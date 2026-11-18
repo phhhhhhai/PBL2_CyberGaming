@@ -17,15 +17,23 @@
 
 using namespace std;
 
-class DoanhThuNgayDTO {
+class PhieuDoanhThu {
 public:
-    string ngay;
+    string tieuDeGoc;
+    string tieuDeHienThi; 
     double tongNap;
     double tongBooking;
     double tongFnB;
 
-    DoanhThuNgayDTO(string n = "") : ngay(n), tongNap(0), tongBooking(0), tongFnB(0) {}
+    PhieuDoanhThu(string goc = "", string hienThi = "") 
+        : tieuDeGoc(goc), tieuDeHienThi(hienThi), tongNap(0), tongBooking(0), tongFnB(0) {}
     double getTongDoanhThu() const { return tongNap + tongBooking + tongFnB; }
+};
+
+class DoanhThuTongHop {
+public:
+    PhieuDoanhThu tongKet;
+    Vector<PhieuDoanhThu> chiTiet;
 };
 
 class HoaDonDTO {
@@ -95,8 +103,9 @@ public:
     bool daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const;
     bool coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
 
-    Vector<string> layDanhSachNgayCoDoanhThu();
-    DoanhThuNgayDTO thongKeDoanhThuNgay(string ngayYYYYMMDD);
+    string formatMocDoanhThu(string goc, int mode) const;
+    Vector<PhieuDoanhThu> layDanhSachMocDoanhThu(int mode);
+    DoanhThuTongHop thongKeDoanhThuChiTiet(string mocGoc, int mode);
 };
 
 #endif

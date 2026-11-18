@@ -13,12 +13,12 @@
 #include "../Entities/Voucher.h"
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Queue.h"
+#include "../BLL/Vector.h"
 #include "../BLL/AdminController.h"
 #include "../BLL/ClientController.h"
 #include "../DAL/FileManager.h"
 #include "RaylibUI.h"
 #include <string>
-#include "../BLL/Vector.h"
 #include <algorithm>
 
 class AppManager {
@@ -72,8 +72,14 @@ private:
     void processKeyboard();
     void drawScreen(Font appFont, RenderTexture2D target);
 
-    string selectedDoanhThuNgay = "";
+    int doanhThuMode = 0; 
+    string selectedDoanhThuMoc = ""; 
     int doanhThuScroll = 0;
+    int breakdownScroll = 0;
+    
+    Vector<PhieuDoanhThu> dsMocDoanhThu;
+    DoanhThuTongHop dtTongHop;
+
 public:
     AppManager();
     ~AppManager();

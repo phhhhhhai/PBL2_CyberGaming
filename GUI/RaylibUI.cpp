@@ -70,7 +70,8 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
     DoublyLinkedList<CartItem*>& cartList, DoublyLinkedList<DatLich*>& dsDatLich, User* currentUser, int popupState, int activePopInp, 
     string p1, string p2, string p3, string p4, string p5, string p6, string p7, string pMsg, 
     int assignScroll, int selectedMachine, bool isHappyHourActive, AdminController* adminCtrl,
-    int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied, string selectedDoanhThuNgay, int doanhThuScroll) 
+    int vDay, int vMonth, int vYear, int vHour, bool isVoucherApplied, int doanhThuMode, string selectedDoanhThuMoc, int doanhThuScroll, int breakdownScroll,
+    Vector<PhieuDoanhThu>& dsMoc, DoanhThuTongHop& dt) 
 {
     DrawRectangle(0, 0, 1920, 50, DARKGRAY); 
     
@@ -347,53 +348,73 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             }
         }
         else if (currentTab == 6) {
-            DrawTextEx(font, "TỔNG KẾT DOANH THU (DÒNG TIỀN THỰC THU)", {100, contentY}, 35, 1, DARKBLUE);
+            DrawTextEx(font, "TỔNG KẾT DOANH THU", {100, contentY}, 35, 1, DARKBLUE);
             
-            DrawRectangle(100, contentY + 50, 310, 650, DARKBLUE);
-            DrawTextEx(font, "CHỌN NGÀY", {190, contentY + 65}, 25, 1, WHITE);
+            DrawRectangle(100, contentY + 50, 360, 670, DARKBLUE);
+            DrawTextEx(font, "CHỌN MỐC THỜI GIAN", {130, contentY + 70}, 20, 1, WHITE);
             
-            Vector<string> dsNgay = adminCtrl->layDanhSachNgayCoDoanhThu();
-            float listY = contentY + 110;
+            Rectangle bNgay = {110, contentY + 110, 70, 30}; DrawRectangleRec(bNgay, doanhThuMode == 0 ? ORANGE : GRAY); DrawTextEx(font, "Ngày", {120, contentY + 115}, 18, 1, WHITE);
+            Rectangle bTuan = {185, contentY + 110, 70, 30}; DrawRectangleRec(bTuan, doanhThuMode == 1 ? ORANGE : GRAY); DrawTextEx(font, "Tuần", {195, contentY + 115}, 18, 1, WHITE);
+            Rectangle bThang= {260, contentY + 110, 70, 30}; DrawRectangleRec(bThang, doanhThuMode == 2 ? ORANGE : GRAY); DrawTextEx(font, "Tháng", {265, contentY + 115}, 18, 1, WHITE);
+            Rectangle bNam  = {335, contentY + 110, 70, 30}; DrawRectangleRec(bNam, doanhThuMode == 3 ? ORANGE : GRAY); DrawTextEx(font, "Năm", {350, contentY + 115}, 18, 1, WHITE);
+
+            float listY = contentY + 150;
             int count = 0;
-            for (int i = 0; i < dsNgay.size(); i++) {
+            for (int i = 0; i < dsMoc.size(); i++) {
                 if (count >= doanhThuScroll && count < doanhThuScroll + 10) {
-                    bool isSelected = (dsNgay[i] == selectedDoanhThuNgay);
-                    DrawRectangle(110, listY, 290, 45, isSelected ? SKYBLUE : LIGHTGRAY);
-                    
-                    string ngayFormat = dsNgay[i].substr(6, 2) + "/" + dsNgay[i].substr(4, 2) + "/" + dsNgay[i].substr(0, 4);
-                    DrawTextEx(font, ngayFormat.c_str(), {160, listY + 10}, 22, 1, BLACK);
+                    bool isSelected = (dsMoc[i].tieuDeGoc == selectedDoanhThuMoc);
+                    DrawRectangle(110, listY, 300, 45, isSelected ? SKYBLUE : LIGHTGRAY);
+                    DrawTextEx(font, dsMoc[i].tieuDeHienThi.c_str(), {120, listY + 12}, 20, 1, BLACK);
                     listY += 50;
                 }
                 count++;
             }
-            DrawRectangle(350, contentY + 60, 40, 30, GRAY); DrawTextEx(font, "/\\", {360, contentY + 65}, 18, 1, WHITE);
-            DrawRectangle(350, contentY + 660, 40, 30, GRAY); DrawTextEx(font, "\\/", {360, contentY + 665}, 18, 1, WHITE);
+            DrawRectangle(420, contentY + 150, 30, 30, GRAY); DrawTextEx(font, "/\\", {425, contentY + 155}, 16, 1, WHITE);
+            DrawRectangle(420, contentY + 680, 30, 30, GRAY); DrawTextEx(font, "\\/", {425, contentY + 685}, 16, 1, WHITE);
 
-            if (!selectedDoanhThuNgay.empty()) {
-                string ngayFormat = selectedDoanhThuNgay.substr(6, 2) + "/" + selectedDoanhThuNgay.substr(4, 2) + "/" + selectedDoanhThuNgay.substr(0, 4);
-                DrawTextEx(font, TextFormat("CHI TIẾT GIAO DỊCH NGÀY: %s", ngayFormat.c_str()), {450, contentY + 50}, 28, 1, DARKBLUE);
+            if (!selectedDoanhThuMoc.empty()) {
+                DrawTextEx(font, TextFormat("CHI TIẾT: %s", dt.tongKet.tieuDeHienThi.c_str()), {500, contentY + 50}, 28, 1, DARKBLUE);
 
-                DoanhThuNgayDTO dt = adminCtrl->thongKeDoanhThuNgay(selectedDoanhThuNgay);
+                DrawRectangle(500, contentY + 90, 360, 90, SKYBLUE);
+                DrawTextEx(font, "NẠP TÀI KHOẢN", {520, contentY + 105}, 18, 1, DARKBLUE);
+                DrawTextEx(font, TextFormat("%.0f đ", dt.tongKet.tongNap), {520, contentY + 140}, 30, 1, BLACK);
 
-                DrawRectangle(450, contentY + 110, 400, 150, SKYBLUE);
-                DrawTextEx(font, "NẠP TÀI KHOẢN (NAP)", {470, contentY + 130}, 22, 1, DARKBLUE);
-                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongNap), {470, contentY + 180}, 40, 1, BLACK);
+                DrawRectangle(880, contentY + 90, 360, 90, ORANGE);
+                DrawTextEx(font, "ĐẶT LỊCH", {900, contentY + 105}, 18, 1, WHITE);
+                DrawTextEx(font, TextFormat("%.0f đ", dt.tongKet.tongBooking), {900, contentY + 140}, 30, 1, WHITE);
 
-                DrawRectangle(880, contentY + 110, 400, 150, ORANGE);
-                DrawTextEx(font, "ĐẶT LỊCH (BOK)", {900, contentY + 130}, 22, 1, WHITE);
-                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongBooking), {900, contentY + 180}, 40, 1, WHITE);
+                DrawRectangle(1260, contentY + 90, 360, 90, GOLD);
+                DrawTextEx(font, "DỊCH VỤ F&B", {1280, contentY + 105}, 18, 1, DARKBLUE);
+                DrawTextEx(font, TextFormat("%.0f đ", dt.tongKet.tongFnB), {1280, contentY + 140}, 30, 1, BLACK);
 
-                DrawRectangle(1310, contentY + 110, 400, 150, GOLD);
-                DrawTextEx(font, "DỊCH VỤ F&B", {1330, contentY + 130}, 22, 1, DARKBLUE);
-                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongFnB), {1330, contentY + 180}, 40, 1, BLACK);
+                DrawRectangle(500, contentY + 200, 1120, 90, RED);
+                DrawTextEx(font, "TỔNG THỰC THU", {520, contentY + 220}, 24, 1, WHITE);
+                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.tongKet.getTongDoanhThu()), {520, contentY + 250}, 40, 1, YELLOW);
 
-                DrawRectangle(450, contentY + 300, 1260, 200, RED);
-                DrawTextEx(font, "TỔNG THỰC THU TRONG NGÀY (TOTAL CASH IN)", {480, contentY + 340}, 30, 1, WHITE);
-                DrawTextEx(font, TextFormat("%.0f VNĐ", dt.getTongDoanhThu()), {480, contentY + 400}, 60, 1, YELLOW);
-                
-                DrawTextEx(font, "* Báo cáo chỉ cộng dồn dòng tiền thực thu (Cash Flow) theo lịch sử giao dịch. Chưa bao gồm tiền điện năng/chi phí cố định.", {450, contentY + 530}, 20, 1, DARKGRAY);
-            } else {
-                DrawTextEx(font, "<-- Vui lòng chọn một ngày từ danh sách bên trái.", {450, contentY + 100}, 25, 1, GRAY);
+                DrawTextEx(font, "PHÂN TÍCH CHI TIẾT", {500, contentY + 310}, 20, 1, DARKGREEN);
+                DrawRectangle(500, contentY + 340, 1120, 35, DARKBLUE);
+                DrawTextEx(font, "Chi tiết", {520, contentY + 348}, 18, 1, WHITE);
+                DrawTextEx(font, "Nạp Tài Khoản", {820, contentY + 348}, 18, 1, WHITE);
+                DrawTextEx(font, "Booking", {1050, contentY + 348}, 18, 1, WHITE);
+                DrawTextEx(font, "F&B", {1250, contentY + 348}, 18, 1, WHITE);
+                DrawTextEx(font, "TỔNG", {1450, contentY + 348}, 18, 1, WHITE);
+
+                float bY = contentY + 375;
+                int bCount = 0;
+                for (int i = 0; i < dt.chiTiet.size(); i++) {
+                    if (bCount >= breakdownScroll && bCount < breakdownScroll + 8) {
+                        DrawRectangle(500, bY, 1120, 40, (bCount % 2 == 0) ? LIGHTGRAY : RAYWHITE);
+                        DrawTextEx(font, dt.chiTiet[i].tieuDeHienThi.c_str(), {520, bY + 10}, 18, 1, BLACK);
+                        DrawTextEx(font, TextFormat("%.0f", dt.chiTiet[i].tongNap), {820, bY + 10}, 18, 1, DARKBLUE);
+                        DrawTextEx(font, TextFormat("%.0f", dt.chiTiet[i].tongBooking), {1050, bY + 10}, 18, 1, ORANGE);
+                        DrawTextEx(font, TextFormat("%.0f", dt.chiTiet[i].tongFnB), {1250, bY + 10}, 18, 1, DARKGREEN);
+                        DrawTextEx(font, TextFormat("%.0f", dt.chiTiet[i].getTongDoanhThu()), {1450, bY + 10}, 18, 1, RED);
+                        bY += 45;
+                    }
+                    bCount++;
+                }
+                DrawRectangle(1630, contentY + 380, 30, 30, GRAY); DrawTextEx(font, "/\\", {1635, contentY + 385}, 16, 1, WHITE);
+                DrawRectangle(1630, contentY + 680, 30, 30, GRAY); DrawTextEx(font, "\\/", {1635, contentY + 685}, 16, 1, WHITE);
             }
         }
     } 
