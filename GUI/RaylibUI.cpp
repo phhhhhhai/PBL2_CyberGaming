@@ -308,9 +308,18 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 DrawTextEx(font, TextFormat("%02d:%02d", b->getGioBatDau(), b->getPhutBatDau()), {tableX + 700, startY}, 20, 1, BLACK);
                 DrawTextEx(font, TextFormat("%d Phút", b->getThoiLuong()), {tableX + 900, startY}, 20, 1, BLACK);
                 
-                DrawRectangle(tableX + 1300, startY - 5, 75, 30, GOLD); DrawTextEx(font, "Sửa", {tableX + 1320, startY}, 20, 1, BLACK);
-                DrawRectangle(tableX + 1385, startY - 5, 75, 30, RED); DrawTextEx(font, "Xóa", {tableX + 1405, startY}, 20, 1, WHITE);
+                if (b->getTrangThai() == 0 || b->getTrangThai() == 1) {
+                    DrawRectangle(tableX + 1300, startY - 5, 75, 30, GOLD); DrawTextEx(font, "Sửa", {tableX + 1320, startY}, 20, 1, BLACK);
+                } else {
+                    DrawRectangle(tableX + 1300, startY - 5, 75, 30, LIGHTGRAY); DrawTextEx(font, "Sửa", {tableX + 1320, startY}, 20, 1, DARKGRAY);
+                }
                 
+                if (b->getTrangThai() == 0) {
+                    DrawRectangle(tableX + 1385, startY - 5, 75, 30, RED); DrawTextEx(font, "Xóa", {tableX + 1405, startY}, 20, 1, WHITE);
+                } else {
+                    DrawRectangle(tableX + 1385, startY - 5, 75, 30, LIGHTGRAY); DrawTextEx(font, "Xóa", {tableX + 1405, startY}, 20, 1, DARKGRAY);
+                }
+
                 if (b->getTrangThai() == 0) DrawTextEx(font, "Chưa đến giờ", {tableX + 1150, startY}, 20, 1, ORANGE);
                 else if (b->getTrangThai() == 1) DrawTextEx(font, "Đang chơi", {tableX + 1150, startY}, 20, 1, RED);
                 else DrawTextEx(font, "Đã xong", {tableX + 1150, startY}, 20, 1, GREEN);

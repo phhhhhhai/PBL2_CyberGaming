@@ -231,14 +231,14 @@ bool AdminController::deleteBooking(int bookingId) {
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
         if (b->getId() == bookingId) {
+            if (b->getTrangThai() == 1 || b->getTrangThai() == 2) {
+                return false; 
+            }
+            
             MayTram* m = findMachineById(b->getIdMay());
             if (m != nullptr) {
                 if (b->getTrangThai() == 0 && m->getTrangThai() == 4) {
                     m->setTrangThai(0); 
-                }
-                else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
-                    m->freeMachine(); 
-                    m->setTrangThai(2); 
                 }
             }
             delete b; 
@@ -297,11 +297,15 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
 
         if (existingBooking != nullptr) {
             if (existingBooking->getTrangThai() == 2) return -11; 
-            if (existingBooking->getTrangThai() == 1) {
+            if (existingBooking->getTrangThai() == 1) { 
                 if (idMay != existingBooking->getIdMay() || date != existingBooking->getNgayDat() || gio != existingBooking->getGioBatDau() || phut != existingBooking->getPhutBatDau()) return -10; 
-                if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+                
                 double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
-                if (extraTien > 0) {
+                
+                if (extraTien < 0) return -17; 
+                
+                if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+                if (extraTien > 0) { 
                     if (cUser->getSoDu() + extraTien > 10000000) return -12;
                     cUser->napTien(extraTien);
                     if (!thoiGianLog.empty()) {

@@ -351,23 +351,30 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         float startY = 250;
                         for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
                             DatLich* b = node->data;
-                            if (CheckCollisionPointRec(mousePoint, {160 + 1300, startY - 5, 75, 30})) {
-                                selectedBookingId = b->getId();
-                                popupState = 14; activePopInp = 1; popMsg = "";
-                                string sdtKhach = "";
-                                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                                    if (u->data->getId() == b->getUserId()) { sdtKhach = u->data->getUsername(); break; }
+                            
+                            if (b->getTrangThai() == 0 || b->getTrangThai() == 1) {
+                                if (CheckCollisionPointRec(mousePoint, {160 + 1300, startY - 5, 75, 30})) {
+                                    selectedBookingId = b->getId();
+                                    popupState = 14; activePopInp = 1; popMsg = "";
+                                    string sdtKhach = "";
+                                    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+                                        if (u->data->getId() == b->getUserId()) { sdtKhach = u->data->getUsername(); break; }
+                                    }
+                                    popInp1 = sdtKhach;
+                                    popInp2 = std::to_string(b->getIdMay()); popInp3 = b->getNgayDat();
+                                    popInp4 = std::to_string(b->getGioBatDau()); popInp5 = std::to_string(b->getPhutBatDau());
+                                    popInp6 = std::to_string(b->getThoiLuong()); popInp7 = ""; 
                                 }
-                                popInp1 = sdtKhach;
-                                popInp2 = std::to_string(b->getIdMay()); popInp3 = b->getNgayDat();
-                                popInp4 = std::to_string(b->getGioBatDau()); popInp5 = std::to_string(b->getPhutBatDau());
-                                popInp6 = std::to_string(b->getThoiLuong()); popInp7 = ""; 
                             }
-                            if (CheckCollisionPointRec(mousePoint, {160 + 1385, startY - 5, 75, 30})) {
-                                adminCtrl->deleteBooking(b->getId());
-                                FileManager::saveGrid("Data/MayTram.txt", grid);
-                                FileManager::saveBookings("Data/Booking.txt", dsDatLich);
-                                break; 
+                            
+                            if (b->getTrangThai() == 0) {
+                                if (CheckCollisionPointRec(mousePoint, {160 + 1385, startY - 5, 75, 30})) {
+                                    if (adminCtrl->deleteBooking(b->getId())) {
+                                        FileManager::saveGrid("Data/MayTram.txt", grid);
+                                        FileManager::saveBookings("Data/Booking.txt", dsDatLich);
+                                    }
+                                    break; 
+                                }
                             }
                             startY += 45;
                         }   
@@ -710,6 +717,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
                 else if (res == -14) popMsg = "Thời lượng chơi tối thiểu 60 phút!"; 
                 else if (res == -15) popMsg = "Trùng lịch! Khung giờ này máy đã được đặt.";
+                else if (res == -17) popMsg = "Đang chơi: Chỉ được gia hạn thêm, không được giảm!";
                 else popMsg = "Thong tin loi hoac khong hop le!";
             }
         }
