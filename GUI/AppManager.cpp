@@ -270,6 +270,9 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                         if (breakdownScroll < 0) breakdownScroll = 0;
                     }
                     else if (currentTab == 1) { 
+                        if (CheckCollisionPointRec(mousePoint, {1390, 120, 150, 40})) {
+                            popupState = 16; popInp1 = ""; popInp2 = ""; popMsg = ""; activePopInp = 2; assignScroll = 0;
+                        }
                         if (CheckCollisionPointRec(mousePoint, {1560, 120, 150, 40})) {
                             popupState = 2; popInp1 = ""; popInp2 = ""; popInp3 = ""; popMsg = ""; activePopInp = 1;
                         }
@@ -501,13 +504,13 @@ void AppManager::processPopup(Vector2 mousePoint) {
             if (CheckCollisionPointRec(mousePoint, {750, 460, 420, 40})) activePopInp = 1;
         }
         else if (popupState == 1) { 
-            if (CheckCollisionPointRec(mousePoint, {1130, 400, 40, 40})) assignScroll--;
-            if (CheckCollisionPointRec(mousePoint, {1130, 580, 40, 40})) assignScroll++;
+            if (CheckCollisionPointRec(mousePoint, {1130, 392, 40, 38})) assignScroll--;
+            if (CheckCollisionPointRec(mousePoint, {1130, 560, 40, 38})) assignScroll++;
             if (assignScroll < 0) assignScroll = 0;
             
-            int countUnassigned = 0; float listY = 400;
+            int countUnassigned = 0; float listY = 392;
             for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                if (p->data->getRoleId() != 1) {
+                if (p->data->getRoleId() != 1 && p->data->getStatus() == 1) {
                     bool isAssigned = false;
                     for (int r=0; r<ROWS; r++) for(int c=0; c<COLS; c++) {
                         if (grid[r][c]->getCurrentClient() != nullptr && 
@@ -517,15 +520,40 @@ void AppManager::processPopup(Vector2 mousePoint) {
                     }
                     if (!isAssigned) {
                         if (countUnassigned >= assignScroll && countUnassigned < assignScroll + 5) {
-                            if (CheckCollisionPointRec(mousePoint, {750, listY, 370, 40})) popInp1 = p->data->getUsername();
-                            listY += 45;
+                            if (CheckCollisionPointRec(mousePoint, {750, listY, 370, 38})) popInp1 = p->data->getUsername();
+                            listY += 42;
                         }
                         countUnassigned++;
                     }
                 }
             }
             if (assignScroll > countUnassigned - 5 && countUnassigned > 5) assignScroll = countUnassigned - 5;
-        } 
+        }
+        else if (popupState == 16) {
+            if (CheckCollisionPointRec(mousePoint, {1150, 315, 40, 38})) assignScroll--;
+            if (CheckCollisionPointRec(mousePoint, {1150, 444, 40, 38})) assignScroll++;
+            if (assignScroll < 0) assignScroll = 0;
+
+            int countDeleted = 0; float listY = 315;
+            for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+                if (p->data->getRoleId() != 1 && p->data->getStatus() == 0) {
+                    if (countDeleted >= assignScroll && countDeleted < assignScroll + 4) {
+                        if (CheckCollisionPointRec(mousePoint, {730, listY, 410, 38})) {
+                            popInp1 = p->data->getUsername();
+                            popInp2 = "";
+                            popMsg = "";
+                            activePopInp = 2;
+                        }
+                        listY += 43;
+                    }
+                    countDeleted++;
+                }
+            }
+            if (assignScroll > countDeleted - 4 && countDeleted > 4) assignScroll = countDeleted - 4;
+            if (countDeleted <= 4) assignScroll = 0;
+
+            if (CheckCollisionPointRec(mousePoint, {730, 545, 460, 40})) activePopInp = 2;
+        }
         else if (popupState == 10) {
             if (CheckCollisionPointRec(mousePoint, {750, 480, 200, 45})) {
                 if (adminCtrl->isMachineInBooking(selectedMachine)) {
@@ -717,11 +745,28 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
                 else if (res == -14) popMsg = "Thời lượng chơi tối thiểu 60 phút!"; 
                 else if (res == -15) popMsg = "Trùng lịch! Khung giờ này máy đã được đặt.";
+                else if (res == -16) popMsg = "Tài khoản đã bị xóa. Vui lòng khôi phục lại để đặt lịch!";
                 else if (res == -17) popMsg = "Đang chơi: Chỉ được gia hạn thêm, không được giảm!";
                 else popMsg = "Thong tin loi hoac khong hop le!";
             }
         }
-        else if (CheckCollisionPointRec(mousePoint, btnHuyChung) && popupState != 10 && popupState != 20) {
+        else if (popupState == 16) {
+            if (CheckCollisionPointRec(mousePoint, {760, 665, 160, 50})) {
+                popupState = 0; popInp1 = ""; popInp2 = ""; popMsg = ""; assignScroll = 0;
+            }
+            else if (CheckCollisionPointRec(mousePoint, {980, 665, 180, 50})) {
+                int res = adminCtrl->restoreTaiKhoan(popInp1, popInp2);
+                if (res == 1) {
+                    FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
+                    popInp1 = "";
+                    popInp2 = "";
+                    popMsg = "Đã khôi phục tài khoản thành công!";
+                }
+                else if (res == -2) popMsg = "Sai mật khẩu, vui lòng nhập lại!";
+                else popMsg = "Vui lòng chọn 1 tài khoản để khôi phục!";
+            }
+        }
+        else if (CheckCollisionPointRec(mousePoint, btnHuyChung) && popupState != 10 && popupState != 20 && popupState != 16) {
             popupState = 0; selectedMachine = -1; selectedAccountUsername = ""; selectedFoodId = -1; selectedOrderId = -1;
         } 
         else if (popupState == 10 && CheckCollisionPointRec(mousePoint, {860, 650, 200, 50})) {
@@ -756,7 +801,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
                     FileManager::saveTaiKhoan("Data/TaiKhoan.txt", dsTaiKhoan);
                     popupState = 0;
                 }
-                else if (res == 0) popMsg = "SĐT da ton tai!";
+                else if (res == 0) popMsg = "Tài khoản đã tồn tại (hoặc đang bị xóa)";
                 else if (res == -3) popMsg = "So du ban dau phai >= 10000 VND!"; 
                 else popMsg = "SĐT phai la so & bat dau bang 0!";
             }
@@ -861,7 +906,7 @@ void AppManager::processKeyboard() {
                 }
 
                 if (allow) {
-                    if (popupState != 1 && activePopInp == 1 && popInp1.length() < 20) popInp1 += (char)key; 
+                    if (popupState != 1 && popupState != 16 && activePopInp == 1 && popInp1.length() < 20) popInp1 += (char)key;
                     else if (activePopInp == 2 && popInp2.length() < 20) popInp2 += (char)key; 
                     else if (activePopInp == 3 && popInp3.length() < 15) popInp3 += (char)key; 
                     else if (activePopInp == 4 && popInp4.length() < 10) popInp4 += (char)key; 
@@ -874,7 +919,7 @@ void AppManager::processKeyboard() {
         }
         
         if (IsKeyPressed(KEY_BACKSPACE)) {
-            if (popupState != 1 && activePopInp == 1 && popInp1.length() > 0) popInp1.pop_back();
+            if (popupState != 1 && popupState != 16 && activePopInp == 1 && popInp1.length() > 0) popInp1.pop_back();
             else if (activePopInp == 2 && popInp2.length() > 0) popInp2.pop_back();
             else if (activePopInp == 3 && popInp3.length() > 0) popInp3.pop_back();
             else if (activePopInp == 4 && popInp4.length() > 0) popInp4.pop_back();

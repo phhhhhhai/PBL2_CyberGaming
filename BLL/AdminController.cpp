@@ -106,7 +106,8 @@ bool AdminController::updatePassword(string username, string newPass) {
 
 int AdminController::assignSeat(string username, int idMay) {
     Client* targetClient = findClientByPhone(username);
-    if (!targetClient) return -4; 
+    if (!targetClient) return -4;
+    if (targetClient->getStatus() == 0) return -5;
     MayTram* m = findMachineById(idMay);
     if (!m) return -1; 
     if (m->getTrangThai() != 0) return -2; 
@@ -227,6 +228,15 @@ bool AdminController::deleteTaiKhoan(string username, Queue<Order*>& ordersQueue
     return false;
 }
 
+int AdminController::restoreTaiKhoan(string username, string oldPass) {
+    if (username.empty()) return -1;
+    User* u = findUserByPhone(username);
+    if (!u || u->getStatus() != 0) return -1;
+    if (u->getPassword() != oldPass) return -2;
+    u->setStatus(1);
+    return 1;
+}
+
 bool AdminController::deleteBooking(int bookingId) {
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
@@ -278,6 +288,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         }
 
         User* targetUser = findUserByPhone(phone);
+        if (targetUser != nullptr && targetUser->getStatus() == 0) return -16;
         if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
         Client* cUser = dynamic_cast<Client*>(targetUser);
@@ -992,9 +1003,9 @@ DoanhThuTongHop AdminController::thongKeDoanhThuChiTiet(string mocGoc, int mode)
 
             string childKey = "", childTitle = "";
             if (mode == 0) {
-                childKey = tg; 
+                childKey = tg + "_" + loai;
                 childTitle = tg.length() >= 13 ? (tg.substr(9, 2) + ":" + tg.substr(11, 2) + " - " + loai) : loai;
-            } 
+            }
             else if (mode == 1) { 
                 childKey = tg.substr(0, 8); childTitle = formatMocDoanhThu(childKey, 0);
             }
@@ -1015,7 +1026,6 @@ DoanhThuTongHop AdminController::thongKeDoanhThuChiTiet(string mocGoc, int mode)
             }
             
             if (foundIdx == -1) {
-                if (mode == 0 && loai == "FNB") childTitle = dsLog[i].getChiTiet(); 
                 PhieuDoanhThu p(childKey, childTitle);
                 kq.chiTiet.push_back(p);
                 foundIdx = kq.chiTiet.size() - 1;
