@@ -157,6 +157,8 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawTextEx(font, "Vị trí máy", {tableX + 850, contentY + 95}, 22, 1, WHITE); 
             DrawTextEx(font, "Số dư (VNĐ)", {tableX + 1050, contentY + 95}, 22, 1, WHITE);
 
+            DrawRectangle(tableX + 1230, contentY + 20, 150, 40, SKYBLUE);
+            DrawTextEx(font, "KHÔI PHỤC", {tableX + 1250, contentY + 30}, 20, 1, BLACK);
             DrawRectangle(tableX + 1400, contentY + 20, 150, 40, GREEN);
             DrawTextEx(font, "+ THÊM MỚI", {tableX + 1415, contentY + 30}, 20, 1, BLACK);
 
@@ -858,6 +860,54 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             DrawRectangle(800, 700, 150, 45, GRAY); DrawTextEx(font, "HỦY", {845, 712}, 22, 1, WHITE);
             DrawRectangle(970, 700, 150, 45, DARKBLUE); DrawTextEx(font, "XÁC NHẬN", {985, 712}, 22, 1, WHITE);
         }
+        else if (popupState == 16) {
+            DrawRectangle(680, 220, 560, 520, RAYWHITE);
+            DrawRectangleLinesEx({680, 220, 560, 520}, 2, DARKBLUE);
+            DrawTextEx(font, "KHÔI PHỤC TÀI KHOẢN", {810, 245}, 28, 1, DARKBLUE);
+            DrawTextEx(font, "Chọn tài khoản muốn khôi phục:", {730, 285}, 22, 1, DARKGRAY);
+
+            int countDeleted = 0; float listY = 315;
+            for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
+                if (p->data->getRoleId() != 1 && p->data->getStatus() == 0) {
+                    if (countDeleted >= assignScroll && countDeleted < assignScroll + 4) {
+                        Rectangle itemRec = {730, listY, 410, 38};
+                        bool isSelected = (p1 == p->data->getUsername());
+                        DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
+                        DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
+
+                        Client* cObj = dynamic_cast<Client*>(p->data);
+                        double soDuTmp = cObj ? cObj->getSoDu() : 0;
+                        DrawTextEx(font, TextFormat("%s - Dư: %.0f VNĐ", p->data->getUsername().c_str(), soDuTmp), {740, listY + 9}, 20, 1, BLACK);
+                        listY += 43;
+                    }
+                    countDeleted++;
+                }
+            }
+            if (countDeleted == 0) DrawTextEx(font, "Không có tài khoản nào đã xóa!", {730, 360}, 22, 1, GRAY);
+            DrawRectangle(1150, 315, 40, 38, GRAY); DrawTextEx(font, "/\\", {1160, 324}, 20, 1, WHITE);
+            DrawRectangle(1150, 444, 40, 38, GRAY); DrawTextEx(font, "\\/", {1160, 453}, 20, 1, WHITE);
+
+            DrawTextEx(font, "Nhập mật khẩu cũ:", {730, 515}, 22, 1, DARKGRAY);
+            DrawRectangleLines(730, 545, 460, 40, (activePopInp == 2) ? BLUE : DARKGRAY);
+            if (p2.empty()) {
+                if (activePopInp != 2) DrawTextEx(font, "Nhấp để nhập mật khẩu...", {740, 555}, 20, 1, LIGHTGRAY);
+            } else {
+                string hiddenPass(p2.length(), '*');
+                DrawTextEx(font, hiddenPass.c_str(), {740, 555}, 22, 1, BLACK);
+            }
+            if (activePopInp == 2 && ((int)(GetTime() * 2) % 2 == 0)) {
+                float textW = MeasureTextEx(font, string(p2.length(), '*').c_str(), 22, 1).x;
+                DrawTextEx(font, "_", {745 + textW, 555}, 22, 1, BLACK);
+            }
+
+            if (!pMsg.empty()) {
+                Color msgColor = (pMsg == "Đã khôi phục tài khoản thành công!") ? DARKGREEN : RED;
+                DrawTextEx(font, pMsg.c_str(), {730, 605}, 20, 1, msgColor);
+            }
+
+            DrawRectangle(760, 665, 160, 50, GRAY); DrawTextEx(font, "ĐÓNG", {810, 677}, 24, 1, WHITE);
+            DrawRectangle(980, 665, 180, 50, DARKGREEN); DrawTextEx(font, "KHÔI PHỤC", {1005, 677}, 24, 1, WHITE);
+        }
         else {
             DrawRectangle(700, 300, 520, 450, RAYWHITE);
             DrawRectangleLines(700, 300, 520, 450, DARKBLUE);
@@ -865,10 +915,10 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             if (popupState == 1) { 
                 DrawTextEx(font, TextFormat("XẾP MÁY %d CHO KHÁCH", selectedMachine), {800, 330}, 28, 1, DARKBLUE);
                 DrawTextEx(font, "Chọn khách hàng đang rảnh:", {750, 370}, 22, 1, DARKGRAY);
-                int countUnassigned = 0; float listY = 400;
+                int countUnassigned = 0; float listY = 392;
                 
                 for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
-                    if (p->data->getRoleId() != 1) {
+                    if (p->data->getRoleId() != 1 && p->data->getStatus() == 1) {
                         bool isAssigned = false;
                         for (int r=0; r<ROWS; r++) for(int c=0; c<COLS; c++) {
                             if (grid[r][c]->getCurrentClient() != nullptr && 
@@ -878,7 +928,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                         }
                         if (!isAssigned) {
                             if (countUnassigned >= assignScroll && countUnassigned < assignScroll + 5) {
-                                Rectangle itemRec = {750, listY, 370, 40};
+                                Rectangle itemRec = {750, listY, 370, 38};
                                 bool isSelected = (p1 == p->data->getUsername());
                                 DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
                                 DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
@@ -886,18 +936,18 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                                 Client* cObj = dynamic_cast<Client*>(p->data);
                                 double soDuTmp = cObj ? cObj->getSoDu() : 0;
                                 
-                                DrawTextEx(font, TextFormat("%s - Dư: %.0f", p->data->getUsername().c_str(), soDuTmp), {760, listY + 10}, 22, 1, BLACK);
-                                listY += 45;
+                                DrawTextEx(font, TextFormat("%s - Dư: %.0f", p->data->getUsername().c_str(), soDuTmp), {760, listY + 9}, 21, 1, BLACK);
+                                listY += 42;
                             }
                             countUnassigned++;
                         }
                     }
                 }
                 if (countUnassigned == 0) DrawTextEx(font, "Khong co khach hang nao ranh!", {750, 450}, 22, 1, RED);
-                DrawRectangle(1130, 400, 40, 40, GRAY); DrawTextEx(font, "/\\", {1140, 410}, 20, 1, WHITE);
-                DrawRectangle(1130, 580, 40, 40, GRAY); DrawTextEx(font, "\\/", {1140, 590}, 20, 1, WHITE);
-            } 
-            else if (popupState == 2) { 
+                DrawRectangle(1130, 392, 40, 38, GRAY); DrawTextEx(font, "/\\", {1140, 401}, 20, 1, WHITE);
+                DrawRectangle(1130, 560, 40, 38, GRAY); DrawTextEx(font, "\\/", {1140, 569}, 20, 1, WHITE);
+            }
+                else if (popupState == 2) { 
                 DrawTextEx(font, "THÊM TÀI KHOẢN MỚI", {800, 330}, 28, 1, DARKBLUE);
                 drawInputField(380, "Số điện thoại:", p1, 1);
                 drawInputField(460, "Mật khẩu:", p2, 2);
@@ -932,7 +982,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 drawInputField(540, "Đơn giá mới (VNĐ):", p2, 2);
             }
 
-            if (!pMsg.empty()) DrawTextEx(font, pMsg.c_str(), {750, 600}, 20, 1, RED);
+            if (!pMsg.empty()) DrawTextEx(font, pMsg.c_str(), {750, 610}, 20, 1, RED);
             
             DrawRectangle(800, 650, 150, 50, GRAY); DrawTextEx(font, "HỦY", {845, 662}, 25, 1, WHITE);
             DrawRectangle(970, 650, 150, 50, DARKBLUE); DrawTextEx(font, "XÁC NHẬN", {985, 662}, 25, 1, WHITE);

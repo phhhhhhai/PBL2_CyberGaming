@@ -66,6 +66,7 @@ public:
     bool napTien(string username, double amount, string thoiGianLog = "");
     bool updatePassword(string username, string newPass);
     bool deleteTaiKhoan(string username, Queue<Order*>& ordersQueue);
+    int restoreTaiKhoan(string username, string oldPass);
     bool deleteBooking(int bookingId);
 
     int assignSeat(string username, int idMay);
