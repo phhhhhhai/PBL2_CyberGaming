@@ -324,10 +324,7 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                                 break;
                             }
                             else if (CheckCollisionPointRec(mousePoint, btnDetail)) {
-                                string uName = "";
-                                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                                    if (u->data->getId() == bills[i].userId) { uName = u->data->getUsername(); break; }
-                                }
+                                string uName = adminCtrl->getUsernameById(bills[i].userId);
                                 selectedBillTime = bills[i].thoiGian; 
                                 selectedAccountUsername = uName;
                                 popupState = 12;
@@ -359,10 +356,7 @@ void AppManager::processWorkspace(Vector2 mousePoint, bool isAdmin) {
                                 if (CheckCollisionPointRec(mousePoint, {160 + 1300, startY - 5, 75, 30})) {
                                     selectedBookingId = b->getId();
                                     popupState = 14; activePopInp = 1; popMsg = "";
-                                    string sdtKhach = "";
-                                    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                                        if (u->data->getId() == b->getUserId()) { sdtKhach = u->data->getUsername(); break; }
-                                    }
+                                    string sdtKhach = adminCtrl->getUsernameById(b->getUserId());
                                     popInp1 = sdtKhach;
                                     popInp2 = std::to_string(b->getIdMay()); popInp3 = b->getNgayDat();
                                     popInp4 = std::to_string(b->getGioBatDau()); popInp5 = std::to_string(b->getPhutBatDau());
@@ -508,24 +502,14 @@ void AppManager::processPopup(Vector2 mousePoint) {
             if (CheckCollisionPointRec(mousePoint, {1130, 560, 40, 38})) assignScroll++;
             if (assignScroll < 0) assignScroll = 0;
             
-            int countUnassigned = 0; float listY = 392;
-            for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                if (p->data->getRoleId() != 1 && p->data->getStatus() == 1) {
-                    bool isAssigned = false;
-                    for (int r=0; r<ROWS; r++) for(int c=0; c<COLS; c++) {
-                        if (grid[r][c]->getCurrentClient() != nullptr && 
-                            grid[r][c]->getCurrentClient()->getUsername() == p->data->getUsername()) {
-                            isAssigned = true;
-                        }
-                    }
-                    if (!isAssigned) {
-                        if (countUnassigned >= assignScroll && countUnassigned < assignScroll + 5) {
-                            if (CheckCollisionPointRec(mousePoint, {750, listY, 370, 38})) popInp1 = p->data->getUsername();
-                            listY += 42;
-                        }
-                        countUnassigned++;
-                    }
+            Vector<User*> dsRanh = adminCtrl->layDanhSachKhachRanh();
+            int countUnassigned = dsRanh.size();
+            float listY = 392;
+            for (int i = assignScroll; i < countUnassigned && i < assignScroll + 5; i++) {
+                if (CheckCollisionPointRec(mousePoint, {750, listY, 370, 38})) {
+                    popInp1 = dsRanh[i]->getUsername();
                 }
+                listY += 42;
             }
             if (assignScroll > countUnassigned - 5 && countUnassigned > 5) assignScroll = countUnassigned - 5;
         }
@@ -607,19 +591,8 @@ void AppManager::processPopup(Vector2 mousePoint) {
         if (popupState == 11 || popupState == 21) {
             if (CheckCollisionPointRec(mousePoint, {900, 700, 150, 45})) { popupState = 0; }
             else {
-                int tId = (popupState == 21) ? currentUser->getId() : -1;
-                if (tId == -1) {
-                    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                        if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
-                    }
-                }
-                Vector<string> bills;
-                for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
-                    if (o->data->getUserId() == tId) {
-                        string tg = o->data->getThoiGian();
-                        if (!bills.contains(tg)) bills.push_back(tg);
-                    }
-                }
+                int tId = (popupState == 21) ? currentUser->getId() : adminCtrl->getUserIdByUsername(selectedAccountUsername);
+                Vector<string> bills = adminCtrl->layCacMocThoiGianBill(tId, ordersQueue);
                 float bY = 330;
                 for (int i = 0; i < bills.size(); i++) {
                     if (CheckCollisionPointRec(mousePoint, {1150, bY, 80, 30})) { 
@@ -631,45 +604,35 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 }
             }
         }
-        else if (popupState == 12) { 
-            if (CheckCollisionPointRec(mousePoint, {600, 780, 150, 50})) { 
-                popupState = 0; 
-                selectedOrderId = -1; 
-                popMsg = ""; 
+        else if (popupState == 12) {
+            if (CheckCollisionPointRec(mousePoint, {600, 780, 150, 50})) {
+                popupState = 0;
+                selectedOrderId = -1;
+                popMsg = "";
             }
             else if (CheckCollisionPointRec(mousePoint, {800, 780, 200, 50})) {
-                int tId = -1;
-                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
-                }
+                int tId = adminCtrl->getUserIdByUsername(selectedAccountUsername);
                 adminCtrl->giaoHangBill(ordersQueue, tId, selectedBillTime);
                 FileManager::saveOrders("Data/Orders.txt", ordersQueue);
             }
-            else if (CheckCollisionPointRec(mousePoint, {1050, 780, 200, 50})) { 
-                int tId = -1;
-                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
-                }
+            else if (CheckCollisionPointRec(mousePoint, {1050, 780, 200, 50})) {
+                int tId = adminCtrl->getUserIdByUsername(selectedAccountUsername);
                 string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
-                
                 adminCtrl->thanhToanBill(ordersQueue, dsMon, tId, selectedBillTime, thoiGianLog);
                 FileManager::saveOrders("Data/Orders.txt", ordersQueue);
             }
             else {
-                int tId = -1;
-                for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
-                    if (u->data->getUsername() == selectedAccountUsername) { tId = u->data->getId(); break; }
-                }
+                int tId = adminCtrl->getUserIdByUsername(selectedAccountUsername);
                 float cY = 340;
                 for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
                     if (o->data->getUserId() == tId && o->data->getThoiGian() == selectedBillTime) {
                         Rectangle btnEdit = {1180, cY - 5, 60, 30};
                         Rectangle btnDel = {1250, cY - 5, 60, 30};
-                        
+
                         if (CheckCollisionPointRec(mousePoint, btnEdit)) {
                             selectedOrderId = o->data->getId();
-                            popupState = 13; 
-                            popInp1 = std::to_string(o->data->getSoLuong()); 
+                            popupState = 13;
+                            popInp1 = std::to_string(o->data->getSoLuong());
                             popMsg = ""; activePopInp = 1;
                             break;
                         }
@@ -723,10 +686,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
             }
             else if (CheckCollisionPointRec(mousePoint, btnXN14)) {
                 int currentTotalDays = adminCtrl->tinhTongSoNgay(vDay, vMonth, vYear);
-                int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-                if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
-                for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
-
+                
                 string thoiGianLog = TextFormat("%04d%02d%02d_%02d%02d", vYear, vMonth, vDay, vHour, vMinute);
                 int res = adminCtrl->validateAndSaveBooking(popInp1, popInp2, popInp3, popInp4, popInp5, popInp6, popInp7, currentTotalDays, selectedBookingId, thoiGianLog);
                 
@@ -744,7 +704,8 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 else if (res == -12) popMsg = "Tien nap tu Booking vuot muc so du 10tr!";
                 else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
                 else if (res == -14) popMsg = "Thời lượng chơi tối thiểu 60 phút!"; 
-                else if (res == -15) popMsg = "Trùng lịch hoặc chưa đủ 15 phút dọn máy giữa 2 lượt đặt!";                else if (res == -16) popMsg = "Tài khoản đã bị xóa. Vui lòng khôi phục lại để đặt lịch!";
+                else if (res == -15) popMsg = "Trùng lịch hoặc chưa đủ 15 phút dọn máy giữa 2 lượt đặt!";
+                else if (res == -16) popMsg = "Tài khoản đã bị xóa. Vui lòng khôi phục lại để đặt lịch!";
                 else if (res == -17) popMsg = "Đang chơi: Chỉ được gia hạn thêm, không được giảm!";
                 else popMsg = "Thong tin loi hoac khong hop le!";
             }

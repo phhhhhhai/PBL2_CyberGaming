@@ -336,9 +336,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (idMay < 31 || idMay > 40) return -4; 
 
         int bookTotalDays = tinhTongSoNgay(d, m, y);
-        int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-        if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) mDays[2] = 29;
-        for(int i = 1; i < m; i++) bookTotalDays += mDays[i];
 
         if (bookTotalDays < currentTotalDays + 1 || bookTotalDays > currentTotalDays + 7) return -6;
 
@@ -387,9 +384,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
     int currMinsTotal = vHour * 60 + vMinute;
     
     int currentTotalDays = tinhTongSoNgay(vDay, vMonth, vYear);
-    int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-    if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
-    for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
     
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
@@ -404,9 +398,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
             bY = stoi(dateStr.substr(6, 4));
         }
         int bookTotalDays = tinhTongSoNgay(bD, bM, bY);
-        int bMDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-        if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
-        for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];
         
         if (bookTotalDays < currentTotalDays) {
             if (b->getTrangThai() != 2) {
@@ -1047,4 +1038,39 @@ DoanhThuTongHop AdminController::thongKeDoanhThuChiTiet(string mocGoc, int mode)
         }
     }
     return kq;
+}
+
+string AdminController::getUsernameById(int userId) {
+    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+        if (u->data->getId() == userId) return u->data->getUsername();
+    }
+    return "";
+}
+
+int AdminController::getUserIdByUsername(const string& username) {
+    User* u = findUserByPhone(username);
+    return (u != nullptr) ? u->getId() : -1;
+}
+
+Vector<User*> AdminController::layDanhSachKhachRanh() {
+    Vector<User*> kq;
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getRoleId() != 1 && p->data->getStatus() == 1) {
+            if (findMachineByUsername(p->data->getUsername()) == nullptr) {
+                kq.push_back(p->data);
+            }
+        }
+    }
+    return kq;
+}
+
+Vector<string> AdminController::layCacMocThoiGianBill(int userId, Queue<Order*>& ordersQueue) {
+    Vector<string> bills;
+    for (Node<Order*>* o = ordersQueue.getFront(); o != nullptr; o = o->next) {
+        if (o->data->getUserId() == userId) {
+            string tg = o->data->getThoiGian();
+            if (!bills.contains(tg)) bills.push_back(tg);
+        }
+    }
+    return bills;
 }

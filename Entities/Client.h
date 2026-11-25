@@ -12,8 +12,7 @@ public:
     Client(int id = 0, string u = "", string p = "", double tien = 0, int st = 1) 
         : User(id, u, p, 2, st), soDu(tien) {}
 
-    double getSoDu() const { return soDu; }
-    void setSoDu(double tien) { soDu = tien; }
+    double getSoDu() const override { return soDu; }    void setSoDu(double tien) { soDu = tien; }
 
     void napTien(double tien) { if (tien > 0) soDu += tien; }
     bool truTien(double tien) {

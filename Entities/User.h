@@ -25,6 +25,8 @@ public:
     int getRoleId() const { return roleId; }
     int getStatus() const { return status; }
     void setStatus(int st) { status = st; }
+
+    virtual double getSoDu() const { return 0; }
     
     virtual void showInfo() const = 0; 
 };
