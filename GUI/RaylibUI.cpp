@@ -170,8 +170,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                 MayTram* m = adminCtrl->findMachineByUsername(p->data->getUsername());
                 string mayDangNgoi = (m != nullptr) ? TextFormat("Máy %d", m->getId()) : "-";
                 
-                Client* clientObj = dynamic_cast<Client*>(p->data);
-                double soDu = (clientObj != nullptr) ? clientObj->getSoDu() : 0;
+                double soDu = p->data->getSoDu();
 
                 DrawTextEx(font, TextFormat("%d", i + 1), {tableX + 20, startY}, 22, 1, BLACK);
                 DrawTextEx(font, p->data->getUsername().c_str(), {tableX + 150, startY}, 22, 1, BLACK);
@@ -432,8 +431,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
     else { 
         DrawTextEx(font, TextFormat("Xin chào: %s", currentUser->getUsername().c_str()), {100, contentY}, 35, 1, DARKBLUE);
         
-        Client* currentClient = dynamic_cast<Client*>(currentUser);
-        double currentSoDu = (currentClient != nullptr) ? currentClient->getSoDu() : 0;
+        double currentSoDu = currentUser->getSoDu();
         
         DrawTextEx(font, TextFormat("Số dư hiện tại: %.0f VNĐ", currentSoDu), {100, contentY + 50}, 35, 1, BLUE);
 
@@ -875,8 +873,7 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
                         DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
                         DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
 
-                        Client* cObj = dynamic_cast<Client*>(p->data);
-                        double soDuTmp = cObj ? cObj->getSoDu() : 0;
+                        double soDuTmp = p->data->getSoDu();
                         DrawTextEx(font, TextFormat("%s - Dư: %.0f VNĐ", p->data->getUsername().c_str(), soDuTmp), {740, listY + 9}, 20, 1, BLACK);
                         listY += 43;
                     }
@@ -915,33 +912,17 @@ void RaylibUI::drawWorkspace(Font font, string clockStr, int currentTab, MayTram
             if (popupState == 1) { 
                 DrawTextEx(font, TextFormat("XẾP MÁY %d CHO KHÁCH", selectedMachine), {800, 330}, 28, 1, DARKBLUE);
                 DrawTextEx(font, "Chọn khách hàng đang rảnh:", {750, 370}, 22, 1, DARKGRAY);
-                int countUnassigned = 0; float listY = 392;
                 
-                for (Node<User*>* p = dsTK.getHead(); p != nullptr; p = p->next) {
-                    if (p->data->getRoleId() != 1 && p->data->getStatus() == 1) {
-                        bool isAssigned = false;
-                        for (int r=0; r<ROWS; r++) for(int c=0; c<COLS; c++) {
-                            if (grid[r][c]->getCurrentClient() != nullptr && 
-                                grid[r][c]->getCurrentClient()->getUsername() == p->data->getUsername()) {
-                                isAssigned = true;
-                            }
-                        }
-                        if (!isAssigned) {
-                            if (countUnassigned >= assignScroll && countUnassigned < assignScroll + 5) {
-                                Rectangle itemRec = {750, listY, 370, 38};
-                                bool isSelected = (p1 == p->data->getUsername());
-                                DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
-                                DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
-                                
-                                Client* cObj = dynamic_cast<Client*>(p->data);
-                                double soDuTmp = cObj ? cObj->getSoDu() : 0;
-                                
-                                DrawTextEx(font, TextFormat("%s - Dư: %.0f", p->data->getUsername().c_str(), soDuTmp), {760, listY + 9}, 21, 1, BLACK);
-                                listY += 42;
-                            }
-                            countUnassigned++;
-                        }
-                    }
+                Vector<User*> dsRanh = adminCtrl->layDanhSachKhachRanh();
+                int countUnassigned = dsRanh.size();
+                float listY = 392;
+                for (int i = assignScroll; i < countUnassigned && i < assignScroll + 5; i++) {
+                    Rectangle itemRec = {750, listY, 370, 38};
+                    bool isSelected = (p1 == dsRanh[i]->getUsername());
+                    DrawRectangleRec(itemRec, isSelected ? SKYBLUE : LIGHTGRAY);
+                    DrawRectangleLinesEx(itemRec, 1, DARKGRAY);
+                    DrawTextEx(font, TextFormat("%s - Dư: %.0f", dsRanh[i]->getUsername().c_str(), dsRanh[i]->getSoDu()), {760, listY + 9}, 21, 1, BLACK);
+                    listY += 42;
                 }
                 if (countUnassigned == 0) DrawTextEx(font, "Khong co khach hang nao ranh!", {750, 450}, 22, 1, RED);
                 DrawRectangle(1130, 392, 40, 38, GRAY); DrawTextEx(font, "/\\", {1140, 401}, 20, 1, WHITE);

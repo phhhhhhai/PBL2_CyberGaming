@@ -59,6 +59,11 @@ public:
     Client* findClientById(int id);    
     MayTram* findMachineByUsername(const string& username);
 
+    string getUsernameById(int userId);
+    int getUserIdByUsername(const string& username);
+    Vector<User*> layDanhSachKhachRanh();
+    Vector<string> layCacMocThoiGianBill(int userId, Queue<Order*>& ordersQueue);
+
     bool isValidPhoneNumber(string phone);
     bool isDuplicateUser(string phone);
     
