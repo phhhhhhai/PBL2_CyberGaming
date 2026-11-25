@@ -65,7 +65,10 @@ bool ClientController::processTick(string username, double deductionAmount) {
 
 void ClientController::returnMachine(string username) {
     MayTram* m = findMachineByUsername(username);
-    if (m) m->freeMachine();
+    if (m) {
+        m->freeMachine();
+        m->setTrangThai(2);
+    }
 }
 
 int ClientController::validateLogin(string username, string password, int currentHour, User*& loggedInUser) {
