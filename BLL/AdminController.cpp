@@ -280,8 +280,9 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                 if (b->getIdMay() == idMay && b->getNgayDat() == date) {
                     int bStart = b->getGioBatDau() * 60 + b->getPhutBatDau();
                     int bEnd = bStart + b->getThoiLuong();
-                    if (newStart < bEnd && newEnd > bStart) {
-                        return -15; 
+                    int buffer = 15;
+                    if (newStart < bEnd + buffer && newEnd + buffer > bStart) {
+                        return -15;
                     }
                 }
             }
@@ -292,12 +293,6 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
         Client* cUser = dynamic_cast<Client*>(targetUser);
-        if (cUser == nullptr) {
-            int newClientId = 1;
-            if (dsTaiKhoan.getSize() > 0) newClientId = dsTaiKhoan.getTail()->data->getId() + 1;
-            cUser = new Client(newClientId, phone, pass, 0, 1);
-            dsTaiKhoan.addTail(cUser);
-        }
 
         DatLich* existingBooking = nullptr;
         if (selectedBookingId != -1) {
@@ -316,7 +311,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                 if (extraTien < 0) return -17; 
                 
                 if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
-                if (extraTien > 0) { 
+                if (extraTien > 0 && cUser != nullptr) { 
                     if (cUser->getSoDu() + extraTien > 10000000) return -12;
                     cUser->napTien(extraTien);
                     if (!thoiGianLog.empty()) {
@@ -340,7 +335,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
         if (idMay < 31 || idMay > 40) return -4; 
 
-        int bookTotalDays = y * 365 + d;
+        int bookTotalDays = tinhTongSoNgay(d, m, y);
         int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
         if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) mDays[2] = 29;
         for(int i = 1; i < m; i++) bookTotalDays += mDays[i];
@@ -349,7 +344,7 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
 
         if (existingBooking != nullptr) {
             double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
-            if (extraTien > 0) {
+            if (extraTien > 0 && cUser != nullptr) {
                 if (cUser->getSoDu() + extraTien > 10000000) return -12;
                 cUser->napTien(extraTien);
                 if (!thoiGianLog.empty()) {
@@ -359,19 +354,26 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
                 }
             }
             existingBooking->updateLich(idMay, date, gio, phut, thoiLuong); 
-        } else { 
+        } else {
             double tienNap = (thoiLuong / 60.0) * 20000.0;
-            if (cUser->getSoDu() + tienNap > 10000000) return -12;
+            double soDuHienTai = (cUser != nullptr) ? cUser->getSoDu() : 0.0;
+            if (soDuHienTai + tienNap > 10000000) return -12;
+
+            if (cUser == nullptr) {
+                int newClientId = 1;
+                if (dsTaiKhoan.getSize() > 0) newClientId = dsTaiKhoan.getTail()->data->getId() + 1;
+                cUser = new Client(newClientId, phone, pass, 0, 1);
+                dsTaiKhoan.addTail(cUser);
+            }
+
             cUser->napTien(tienNap);
             int newId = 1;
             if (dsDatLich.getSize() > 0) newId = dsDatLich.getTail()->data->getId() + 1;
-            int uId = -1;
-            Client* c = findClientByPhone(phone);
-            if (c != nullptr) uId = c->getId();
+            int uId = cUser->getId();
             dsDatLich.addTail(new DatLich(newId, uId, idMay, date, gio, phut, thoiLuong, 0));
             if (!thoiGianLog.empty()) {
-                double donGiaPhut = 20000.0/60.0; 
-                double tongTien = thoiLuong * donGiaPhut; 
+                double donGiaPhut = 20000.0 / 60.0;
+                double tongTien = thoiLuong * donGiaPhut;
                 string chiTiet = "Thanh_Toan_Booking_May_" + to_string(idMay);
                 FileManager::logDoanhThu(thoiGianLog, "BOK", uId, chiTiet, thoiLuong, tongTien);
             }
@@ -384,7 +386,7 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
     Vector<string> kickedUsers;
     int currMinsTotal = vHour * 60 + vMinute;
     
-    int currentTotalDays = vYear * 365 + vDay;
+    int currentTotalDays = tinhTongSoNgay(vDay, vMonth, vYear);
     int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
     if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
     for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
@@ -401,7 +403,7 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
             bM = stoi(dateStr.substr(3, 2));
             bY = stoi(dateStr.substr(6, 4));
         }
-        int bookTotalDays = bY * 365 + bD;
+        int bookTotalDays = tinhTongSoNgay(bD, bM, bY);
         int bMDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
         if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
         for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];

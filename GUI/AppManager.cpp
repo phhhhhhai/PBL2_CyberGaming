@@ -722,7 +722,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 popupState = 0; selectedBookingId = -1;
             }
             else if (CheckCollisionPointRec(mousePoint, btnXN14)) {
-                int currentTotalDays = vYear * 365 + vDay;
+                int currentTotalDays = adminCtrl->tinhTongSoNgay(vDay, vMonth, vYear);
                 int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
                 if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
                 for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
@@ -744,8 +744,7 @@ void AppManager::processPopup(Vector2 mousePoint) {
                 else if (res == -12) popMsg = "Tien nap tu Booking vuot muc so du 10tr!";
                 else if (res == -13) popMsg = "Thoi gian ket thuc vuot qua gio dong cua (22:00)!";
                 else if (res == -14) popMsg = "Thời lượng chơi tối thiểu 60 phút!"; 
-                else if (res == -15) popMsg = "Trùng lịch! Khung giờ này máy đã được đặt.";
-                else if (res == -16) popMsg = "Tài khoản đã bị xóa. Vui lòng khôi phục lại để đặt lịch!";
+                else if (res == -15) popMsg = "Trùng lịch hoặc chưa đủ 15 phút dọn máy giữa 2 lượt đặt!";                else if (res == -16) popMsg = "Tài khoản đã bị xóa. Vui lòng khôi phục lại để đặt lịch!";
                 else if (res == -17) popMsg = "Đang chơi: Chỉ được gia hạn thêm, không được giảm!";
                 else popMsg = "Thong tin loi hoac khong hop le!";
             }
