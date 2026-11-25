@@ -20,6 +20,15 @@ Client* AdminController::findClientByPhone(const string& phone) {
     return dynamic_cast<Client*>(findUserByPhone(phone)); 
 }
 
+Client* AdminController::findClientById(int id) {
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getId() == id) {
+            return dynamic_cast<Client*>(p->data);
+        }
+    }
+    return nullptr;
+}
+
 MayTram* AdminController::findMachineById(int id) {
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
@@ -50,7 +59,7 @@ bool AdminController::isDuplicateUser(string phone) {
     return findUserByPhone(phone) != nullptr;
 }
 
-int AdminController::addTaiKhoan(string phone, string pass, double initialBalance) {
+int AdminController::addTaiKhoan(string phone, string pass, double initialBalance, string thoiGianLog) {
     if (!isValidPhoneNumber(phone)) return -1; 
     if (initialBalance < 10000) return -3; 
     if (initialBalance > 10000000) return -4; 
@@ -59,16 +68,29 @@ int AdminController::addTaiKhoan(string phone, string pass, double initialBalanc
     int newId = 1;
     if (dsTaiKhoan.getSize() > 0) newId = dsTaiKhoan.getTail()->data->getId() + 1;
     dsTaiKhoan.addTail(new Client(newId, phone, pass, initialBalance));
+    if (!thoiGianLog.empty()) {
+        FileManager::logDoanhThu(thoiGianLog, "NAP", newId, "Nap_Tien_Tao_Tai_Khoan", 1, initialBalance);
+    }
     return 1;
 }
 
-bool AdminController::napTien(string username, double amount) {
+bool AdminController::napTien(string username, double amount, string thoiGianLog) {
     if (amount <= 0 || amount > 5000000) return false; 
-    Client* c = findClientByPhone(username);
-    if (c) {
-        if (c->getSoDu() + amount > 10000000) return false; 
-        c->napTien(amount);
-        return true;
+    
+    for (Node<User*>* u = dsTaiKhoan.getHead(); u != nullptr; u = u->next) {
+        if (u->data->getUsername() == username) {
+            Client* c = dynamic_cast<Client*>(u->data);
+            if (c != nullptr) {
+                if (c->getSoDu() + amount > 10000000) return false; 
+                
+                c->setSoDu(c->getSoDu() + amount);
+                
+                if (!thoiGianLog.empty()) {
+                    FileManager::logDoanhThu(thoiGianLog, "NAP", c->getId(), "Nap_Tien_Truc_Tiep", 1, amount);
+                }
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -84,7 +106,8 @@ bool AdminController::updatePassword(string username, string newPass) {
 
 int AdminController::assignSeat(string username, int idMay) {
     Client* targetClient = findClientByPhone(username);
-    if (!targetClient) return -4; 
+    if (!targetClient) return -4;
+    if (targetClient->getStatus() == 0) return -5;
     MayTram* m = findMachineById(idMay);
     if (!m) return -1; 
     if (m->getTrangThai() != 0) return -2; 
@@ -106,20 +129,16 @@ bool AdminController::isMachineInBooking(int idMay) {
 int AdminController::changeMachine(int srcId, int destId) {
     MayTram* srcM = findMachineById(srcId);
     MayTram* destM = findMachineById(destId);
-    if (!srcM || !destM) return -1; // Lỗi không tìm thấy máy
-    if (destM->getTrangThai() != 0) return -2; // Máy đích không trống
+    if (!srcM || !destM) return -1;
+    if (destM->getTrangThai() != 0) return -2;
     Client* cUser = srcM->getCurrentClient();
     if (!cUser) return -1;
-    // Máy đang thuộc đơn Booking thì không được đổi
     if (isMachineInBooking(srcId)) return -5; 
-    // Kiểm tra tài chính cho máy mới
     double gia1Gio = (destM->getLoaiMay() == 0) ? 10000 : ((destM->getLoaiMay() == 1) ? 14000 : 20000);
     if (cUser->getSoDu() < gia1Gio) return -3;
-    // Thực hiện đổi máy và bê nguyên trạng thái cũ sang
     int oldState = srcM->getTrangThai();
     destM->assignClient(cUser);
     destM->setTrangThai(oldState);
-    // Dọn dẹp máy cũ
     srcM->freeMachine();
     srcM->setTrangThai(2); 
 
@@ -169,18 +188,20 @@ bool AdminController::deleteMonAn(int idXoa) {
     return false;
 }
 
-bool AdminController::deleteTaiKhoan(string username) {
+bool AdminController::deleteTaiKhoan(string username, Queue<Order*>& ordersQueue) {
     User* u = findUserByPhone(username);
     if (u) {
-        // 1. Giải phóng máy nếu user đang ngồi chơi trực tiếp
+        if (u->getRoleId() == 1) return false;
+        int targetId = u->getId();
+        u->setStatus(0); 
+
         MayTram* m = findMachineByUsername(username);
         if (m) m->freeMachine();
 
-        // 2. Xóa các đơn đặt lịch của user này và nhả máy đang giữ chỗ (trạng thái 4)
         Node<DatLich*>* bNode = dsDatLich.getHead();
         while (bNode != nullptr) {
             Node<DatLich*>* nextNode = bNode->next;
-            if (bNode->data->getSdtKhach() == username) {
+            if (bNode->data->getUserId() == targetId) {
                 if (bNode->data->getTrangThai() == 0) {
                     MayTram* bookM = findMachineById(bNode->data->getIdMay());
                     if (bookM && bookM->getTrangThai() == 4) bookM->setTrangThai(0);
@@ -191,30 +212,43 @@ bool AdminController::deleteTaiKhoan(string username) {
             bNode = nextNode;
         }
 
-        // 3. Xóa user khỏi danh sách tài khoản
-        for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-            if (p->data->getUsername() == username) {
-                delete p->data;
-                dsTaiKhoan.remove(p);
-                return true;
+        Queue<Order*> tempQueue;
+        while (!ordersQueue.isEmpty()) {
+            Order* o = ordersQueue.dequeue();
+            if (o->getUserId() == targetId) {
+                delete o; 
+            } else {
+                tempQueue.enqueue(o); 
             }
         }
+        while (!tempQueue.isEmpty()) ordersQueue.enqueue(tempQueue.dequeue());
+
+        return true;
     }
     return false;
+}
+
+int AdminController::restoreTaiKhoan(string username, string oldPass) {
+    if (username.empty()) return -1;
+    User* u = findUserByPhone(username);
+    if (!u || u->getStatus() != 0) return -1;
+    if (u->getPassword() != oldPass) return -2;
+    u->setStatus(1);
+    return 1;
 }
 
 bool AdminController::deleteBooking(int bookingId) {
     for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
         DatLich* b = node->data;
         if (b->getId() == bookingId) {
+            if (b->getTrangThai() == 1 || b->getTrangThai() == 2) {
+                return false; 
+            }
+            
             MayTram* m = findMachineById(b->getIdMay());
             if (m != nullptr) {
                 if (b->getTrangThai() == 0 && m->getTrangThai() == 4) {
-                    m->setTrangThai(0); // Nhả máy đang khóa chờ book
-                }
-                else if (b->getTrangThai() == 1 && m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                    m->freeMachine(); 
-                    m->setTrangThai(2); // Khách đang chơi bị hủy đơn thì đá ra, máy chuyển về trạng thái dọn dẹp
+                    m->setTrangThai(0); 
                 }
             }
             delete b; 
@@ -225,7 +259,7 @@ bool AdminController::deleteBooking(int bookingId) {
     return false;
 }
 
-int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId) {
+int AdminController::validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, int currentTotalDays, int selectedBookingId, string thoiGianLog) {
     if (phone.empty() || idMayStr.empty() || date.empty() || hStr.empty() || mStr.empty() || durationStr.empty() || pass.empty()) return -1;
     if (!isValidPhoneNumber(phone)) return -2;
     if (date.length() != 10 || date[2] != '/' || date[5] != '/') return -3;
@@ -234,16 +268,31 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         int d = stoi(date.substr(0, 2)), m = stoi(date.substr(3, 2)), y = stoi(date.substr(6, 4));
         int idMay = stoi(idMayStr), gio = stoi(hStr), phut = stoi(mStr), thoiLuong = stoi(durationStr);
         
+        if (thoiLuong < 60) return -14; 
+        if (phut < 0 || phut > 59) return -7;
+
+        int newStart = gio * 60 + phut;
+        int newEnd = newStart + thoiLuong;
+        
+        for (Node<DatLich*>* node = dsDatLich.getHead(); node != nullptr; node = node->next) {
+            DatLich* b = node->data;
+            if (b->getId() != selectedBookingId && b->getTrangThai() != 2) {
+                if (b->getIdMay() == idMay && b->getNgayDat() == date) {
+                    int bStart = b->getGioBatDau() * 60 + b->getPhutBatDau();
+                    int bEnd = bStart + b->getThoiLuong();
+                    int buffer = 15;
+                    if (newStart < bEnd + buffer && newEnd + buffer > bStart) {
+                        return -15;
+                    }
+                }
+            }
+        }
+
         User* targetUser = findUserByPhone(phone);
+        if (targetUser != nullptr && targetUser->getStatus() == 0) return -16;
         if (targetUser != nullptr && targetUser->getPassword() != pass) return -8; 
 
         Client* cUser = dynamic_cast<Client*>(targetUser);
-        if (cUser == nullptr) {
-            int newClientId = 1;
-            if (dsTaiKhoan.getSize() > 0) newClientId = dsTaiKhoan.getTail()->data->getId() + 1;
-            cUser = new Client(newClientId, phone, pass, 0, 1);
-            dsTaiKhoan.addTail(cUser);
-        }
 
         DatLich* existingBooking = nullptr;
         if (selectedBookingId != -1) {
@@ -254,14 +303,22 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
 
         if (existingBooking != nullptr) {
             if (existingBooking->getTrangThai() == 2) return -11; 
-            if (existingBooking->getTrangThai() == 1) {
+            if (existingBooking->getTrangThai() == 1) { 
                 if (idMay != existingBooking->getIdMay() || date != existingBooking->getNgayDat() || gio != existingBooking->getGioBatDau() || phut != existingBooking->getPhutBatDau()) return -10; 
-                if (thoiLuong <= 0) return -7;
-                if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+                
                 double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
-                if (extraTien > 0) {
+                
+                if (extraTien < 0) return -17; 
+                
+                if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
+                if (extraTien > 0 && cUser != nullptr) { 
                     if (cUser->getSoDu() + extraTien > 10000000) return -12;
                     cUser->napTien(extraTien);
+                    if (!thoiGianLog.empty()) {
+                        int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
+                        string chiTiet = "Gia_Han_Booking_May_" + to_string(idMay);
+                        FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
+                    }
                 }
                 existingBooking->updateLich(existingBooking->getIdMay(), existingBooking->getNgayDat(), existingBooking->getGioBatDau(), existingBooking->getPhutBatDau(), thoiLuong);
                 return 1; 
@@ -275,11 +332,10 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (d < 1 || d > maxDays) return -5;
 
         if (gio < 7 || gio >= 22) return -9; 
-        if (phut < 0 || phut > 59 || thoiLuong <= 0) return -7;
         if (gio * 60 + phut + thoiLuong > 22 * 60) return -13;
         if (idMay < 31 || idMay > 40) return -4; 
 
-        int bookTotalDays = y * 365 + d;
+        int bookTotalDays = tinhTongSoNgay(d, m, y);
         int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
         if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) mDays[2] = 29;
         for(int i = 1; i < m; i++) bookTotalDays += mDays[i];
@@ -287,14 +343,40 @@ int AdminController::validateAndSaveBooking(string phone, string idMayStr, strin
         if (bookTotalDays < currentTotalDays + 1 || bookTotalDays > currentTotalDays + 7) return -6;
 
         if (existingBooking != nullptr) {
+            double extraTien = ((thoiLuong - existingBooking->getThoiLuong()) / 60.0) * 20000.0;
+            if (extraTien > 0 && cUser != nullptr) {
+                if (cUser->getSoDu() + extraTien > 10000000) return -12;
+                cUser->napTien(extraTien);
+                if (!thoiGianLog.empty()) {
+                    int phutMuaThem = thoiLuong - existingBooking->getThoiLuong();
+                    string chiTiet = "Sua_Don_Booking_May_" + to_string(idMay);
+                    FileManager::logDoanhThu(thoiGianLog, "BOK", cUser->getId(), chiTiet, phutMuaThem, extraTien);
+                }
+            }
             existingBooking->updateLich(idMay, date, gio, phut, thoiLuong); 
-        } else { 
+        } else {
             double tienNap = (thoiLuong / 60.0) * 20000.0;
-            if (cUser->getSoDu() + tienNap > 10000000) return -12;
+            double soDuHienTai = (cUser != nullptr) ? cUser->getSoDu() : 0.0;
+            if (soDuHienTai + tienNap > 10000000) return -12;
+
+            if (cUser == nullptr) {
+                int newClientId = 1;
+                if (dsTaiKhoan.getSize() > 0) newClientId = dsTaiKhoan.getTail()->data->getId() + 1;
+                cUser = new Client(newClientId, phone, pass, 0, 1);
+                dsTaiKhoan.addTail(cUser);
+            }
+
             cUser->napTien(tienNap);
             int newId = 1;
             if (dsDatLich.getSize() > 0) newId = dsDatLich.getTail()->data->getId() + 1;
-            dsDatLich.addTail(new DatLich(newId, phone, idMay, date, gio, phut, thoiLuong, 0)); 
+            int uId = cUser->getId();
+            dsDatLich.addTail(new DatLich(newId, uId, idMay, date, gio, phut, thoiLuong, 0));
+            if (!thoiGianLog.empty()) {
+                double donGiaPhut = 20000.0 / 60.0;
+                double tongTien = thoiLuong * donGiaPhut;
+                string chiTiet = "Thanh_Toan_Booking_May_" + to_string(idMay);
+                FileManager::logDoanhThu(thoiGianLog, "BOK", uId, chiTiet, thoiLuong, tongTien);
+            }
         }
         return 1; 
     } catch (...) { return 0; }
@@ -304,8 +386,7 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
     Vector<string> kickedUsers;
     int currMinsTotal = vHour * 60 + vMinute;
     
-    // Tính tổng số ngày hiện tại của hệ thống để so sánh với ngày đặt lịch
-    int currentTotalDays = vYear * 365 + vDay;
+    int currentTotalDays = tinhTongSoNgay(vDay, vMonth, vYear);
     int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
     if ((vYear % 4 == 0 && vYear % 100 != 0) || vYear % 400 == 0) mDays[2] = 29;
     for(int i = 1; i < vMonth; i++) currentTotalDays += mDays[i];
@@ -315,7 +396,6 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
         MayTram* m = findMachineById(b->getIdMay()); 
         if (!m) continue;
 
-        // Tính tổng số ngày của đơn đặt lịch
         string dateStr = b->getNgayDat();
         int bD = 0, bM = 0, bY = 0;
         if (dateStr.length() == 10) {
@@ -323,33 +403,29 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
             bM = stoi(dateStr.substr(3, 2));
             bY = stoi(dateStr.substr(6, 4));
         }
-        int bookTotalDays = bY * 365 + bD;
+        int bookTotalDays = tinhTongSoNgay(bD, bM, bY);
         int bMDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
         if ((bY % 4 == 0 && bY % 100 != 0) || bY % 400 == 0) bMDays[2] = 29;
         for(int i = 1; i < bM; i++) bookTotalDays += bMDays[i];
         
-        // 1. XỬ LÝ ĐƠN HÔM TRƯỚC (Quá hạn)
         if (bookTotalDays < currentTotalDays) {
             if (b->getTrangThai() != 2) {
-                if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                    kickedUsers.push_back(b->getSdtKhach());
+                if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
+                    kickedUsers.push_back(m->getCurrentClient()->getUsername());
                     m->freeMachine(); 
                     m->setTrangThai(0); 
                 }
                 b->setTrangThai(2);
             }
         }
-        // 2. XỬ LÝ ĐƠN TRONG NGÀY HÔM NAY 
         else if (bookTotalDays == currentTotalDays) {
             int bookMins = b->getGioBatDau() * 60 + b->getPhutBatDau();
             
-            // TRƯỚC GIỜ ĐẶT (Vùng đệm 15 phút)
             if (currMinsTotal < bookMins) {
                 b->setTrangThai(0); 
                 if (currMinsTotal >= bookMins - 15) {
-                    // Chuyển ghế sang trạng thái ĐANG DỌN DẸP (2) để nhân viên biết.
                     if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
-                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getId() != b->getUserId())) {
                         
                         if (m->getCurrentClient() != nullptr) {
                             kickedUsers.push_back(m->getCurrentClient()->getUsername());
@@ -357,19 +433,17 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                         m->freeMachine(); 
                         m->setTrangThai(2); 
                     } 
-                    // Nếu máy đã dọn xong (0), thì Khóa giữ chỗ (4)
                     else if (m->getTrangThai() == 0) {
                         m->setTrangThai(4); 
                     }
                 }
             }
-            // TRONG GIỜ ĐẶT
             else if (currMinsTotal >= bookMins && currMinsTotal < bookMins + b->getThoiLuong()) {
                 b->setTrangThai(1); 
-                Client* cUser = findClientByPhone(b->getSdtKhach()); 
+                Client* cUser = findClientById(b->getUserId());
                 if (cUser != nullptr) {
                     if ((m->getTrangThai() == 1 || m->getTrangThai() == 3) && 
-                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getUsername() != b->getSdtKhach())) {
+                        (m->getCurrentClient() == nullptr || m->getCurrentClient()->getId() != b->getUserId())) {
                         if (m->getCurrentClient() != nullptr) kickedUsers.push_back(m->getCurrentClient()->getUsername());
                         m->freeMachine();
                         m->setTrangThai(2); 
@@ -385,11 +459,10 @@ Vector<string> AdminController::updateBookingLogics(int vDay, int vMonth, int vY
                     }
                 }
             }
-            // HẾT GIỜ ĐẶT LỊCH
             else {
                 if (b->getTrangThai() == 1) { 
-                    if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getUsername() == b->getSdtKhach()) {
-                        kickedUsers.push_back(b->getSdtKhach());
+                    if (m->getCurrentClient() != nullptr && m->getCurrentClient()->getId() == b->getUserId()) {
+                        kickedUsers.push_back(m->getCurrentClient()->getUsername());
                         m->freeMachine(); 
                         m->setTrangThai(2); 
                     }
@@ -405,7 +478,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     Vector<string> kickedUsers;
     int skipSeconds = mins * 60;    
     
-    // 1. Xử lý trừ tiền khách đang chơi
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             if (grid[r][c]->getTrangThai() == 1 && grid[r][c]->getCurrentClient() != nullptr) {
@@ -425,7 +497,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
         }
     }
     
-    // 2. Tính toán đồng hồ
     if (mins > 0) {
         vMinute += mins;
         while (vMinute >= 60) { vMinute -= 60; vHour++; }
@@ -453,7 +524,6 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
         }
     }
     
-    // Sẽ dọn sạch mọi ghế về trạng thái TRỐNG (0).
     if (vHour < 7 || vHour >= 22 || mins >= 1440) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
@@ -470,7 +540,7 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
     
     Vector<string> bookingKicked = updateBookingLogics(vDay, vMonth, vYear, vHour, vMinute);
     for (int i = 0; i < bookingKicked.size(); i++) {
-        if (!kickedUsers.contains(bookingKicked[i])) { // Gọi hàm contains thay cho std::find dài ngoằng
+        if (!kickedUsers.contains(bookingKicked[i])) {
             kickedUsers.push_back(bookingKicked[i]);
         }
     }
@@ -479,4 +549,502 @@ Vector<string> AdminController::addVirtualMinutes(int mins, int& vDay, int& vMon
         FileManager::saveBookings("Data/Booking.txt", dsDatLich);
     }
     return kickedUsers;
+}
+
+void AdminController::thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& dsMon, int userId, string thoiGianBill, string thoiGianLog) {
+    bool allPaid = true;
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
+            if (p->data->getPaid() == 0) allPaid = false;
+        }
+    }
+    
+    int newState = allPaid ? 0 : 1; 
+
+    if (newState == 1) {
+        for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+            if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill && p->data->getPaid() == 0) {
+                p->data->setPaid(1); 
+                
+                string tenMon = "Unknown";
+                double thanhTienGoc = 0;
+                
+                for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                    if (m->data->getId() == p->data->getIdMon()) {
+                        tenMon = m->data->getTenMon();
+                        thanhTienGoc = m->data->getDonGia() * p->data->getSoLuong();
+                        break;
+                    }
+                }
+                GiaHoaDon* boTinh = (p->data->getVoucherUsed() == 1)
+                    ? static_cast<GiaHoaDon*>(new GiaHoaDonVoucher10())
+                    : static_cast<GiaHoaDon*>(new GiaHoaDonGoc());
+                double thucTra = boTinh->tinhTongCong(thanhTienGoc);
+                delete boTinh;
+
+                FileManager::logDoanhThu(thoiGianLog, "FNB", userId, tenMon, p->data->getSoLuong(), thucTra);
+            }
+        }
+    } 
+    else {
+        for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+            if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGianBill) {
+                p->data->setPaid(0);
+            }
+        }
+    }
+}
+
+void AdminController::giaoHangBill(Queue<Order*>& q, int userId, string thoiGian) {
+    bool allDelivered = true;
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            if (p->data->getStatus() == 0) allDelivered = false;
+        }
+    }
+    int newState = allDelivered ? 0 : 1; 
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            p->data->setStatus(newState);
+        }
+    }
+}
+
+int AdminController::deleteBill(Queue<Order*>& q, int userId, string thoiGian) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getUserId() == userId && p->data->getThoiGian() == thoiGian) {
+            if (p->data->getPaid() == 1) return -1; 
+            if (p->data->getStatus() == 1) return -2;
+        }
+    }
+    Queue<Order*> temp;
+    while (!q.isEmpty()) {
+        Order* o = q.dequeue();
+        if (o->getUserId() == userId && o->getThoiGian() == thoiGian) { delete o; } 
+        else { temp.enqueue(o); }
+    }
+    while (!temp.isEmpty()) q.enqueue(temp.dequeue());
+    return 1;
+}
+
+int AdminController::updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getId() == orderId) {
+            if (p->data->getPaid() == 1) return -1; 
+            if (p->data->getStatus() == 1) return -2;
+            p->data->setSoLuong(newQty);
+            return 1;
+        }
+    }
+    return 0; 
+}
+
+int AdminController::deleteOrder(Queue<Order*>& q, int orderId) {
+    for (Node<Order*>* p = q.getFront(); p != nullptr; p = p->next) {
+        if (p->data->getId() == orderId) {
+            if (p->data->getPaid() == 1) return -1;
+            if (p->data->getStatus() == 1) return -2;
+        }
+    }
+    Queue<Order*> temp;
+    bool found = false;
+    while (!q.isEmpty()) {
+        Order* o = q.dequeue();
+        if (o->getId() == orderId) { delete o; found = true; }
+        else { temp.enqueue(o); }
+    }
+    while (!temp.isEmpty()) q.enqueue(temp.dequeue());
+    return found ? 1 : 0;
+}
+
+Vector<HoaDonDTO> AdminController::getDanhSachHoaDon(Queue<Order*>& ordersQueue) {
+    Vector<HoaDonDTO> bills;
+    for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
+        Order* o = p->data;
+        bool found = false;
+        for (int k = 0; k < bills.size(); k++) {
+            if (bills[k].userId == o->getUserId() && bills[k].thoiGian == o->getThoiGian()) {
+                double gia = 0;
+                for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                    if (m->data->getId() == o->getIdMon()) { gia = m->data->getDonGia(); break; }
+                }
+                bills[k].thanhTien += gia * o->getSoLuong();
+                if (o->getVoucherUsed() == 1) bills[k].coVoucher = 1;
+                if (o->getStatus() == 0) bills[k].trangThai = 0; 
+                if (o->getPaid() == 0) bills[k].thanhToan = 0;   
+                found = true; break;
+            }
+        }
+        if (!found) {
+            double giaBanDau = 0;
+            for (Node<MonAn*>* m = dsMon.getHead(); m != nullptr; m = m->next) {
+                if (m->data->getId() == o->getIdMon()) { giaBanDau = m->data->getDonGia() * o->getSoLuong(); break; }
+            }
+            HoaDonDTO b(o->getUserId(), o->getThoiGian(), o->getMachineId(), giaBanDau, 0, giaBanDau, o->getStatus(), o->getPaid(), o->getVoucherUsed());
+            bills.push_back(b);
+        }
+    }
+    for (int k = 0; k < bills.size(); k++) {
+        GiaHoaDon* boTinh = (bills[k].coVoucher == 1)
+            ? static_cast<GiaHoaDon*>(new GiaHoaDonVoucher10())
+            : static_cast<GiaHoaDon*>(new GiaHoaDonGoc());
+        bills[k].giamGia = boTinh->tinhGiamGia(bills[k].thanhTien);
+        bills[k].tongTien = boTinh->tinhTongCong(bills[k].thanhTien);
+        delete boTinh;
+    }
+    return bills;
+}
+
+int AdminController::tinhTongSoNgay(int d, int m, int y) const {
+    int prevY = y - 1;
+    int leapDays = prevY / 4 - prevY / 100 + prevY / 400;
+    int total = y * 365 + leapDays + d;
+    int mDays[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) mDays[2] = 29;
+    for (int i = 1; i < m; i++) total += mDays[i];
+    return total;
+}
+
+void AdminController::layKhoangTuanTongKet(int vDay, int vMonth, int vYear, int vHour, int& startDays, int& endDays, int& tuanTrongThang, int& thangHienThi) const {
+    int mocThuHaiGoc = tinhTongSoNgay(16, 11, 2026);
+    int ngayHienTai = tinhTongSoNgay(vDay, vMonth, vYear);
+    int diff = ngayHienTai - mocThuHaiGoc;
+
+    int tuanTongKet = -1;
+    if (diff >= 7) {
+        tuanTongKet = (diff / 7) - 1;
+        if (diff % 7 == 6 && vHour >= 22) {
+            tuanTongKet = diff / 7;
+        }
+    } else if (diff == 6 && vHour >= 22) {
+        tuanTongKet = 0;
+    }
+
+    if (tuanTongKet < 0) {
+        startDays = -1;
+        endDays = -1;
+        tuanTrongThang = 3;
+        thangHienThi = 11;
+        return;
+    }
+
+    startDays = mocThuHaiGoc + tuanTongKet * 7;
+    endDays = startDays + 6;
+
+    int d = 16, m = 11, y = 2026;
+    int addDays = tuanTongKet * 7;
+    while (addDays > 0) {
+        int maxDays = 31;
+        if (m == 4 || m == 6 || m == 9 || m == 11) maxDays = 30;
+        else if (m == 2) maxDays = ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) ? 29 : 28;
+        d++;
+        if (d > maxDays) { d = 1; m++; if (m > 12) { m = 1; y++; } }
+        addDays--;
+    }
+
+    tuanTrongThang = (d - 1) / 7 + 1;
+    if (tuanTrongThang > 4) tuanTrongThang = 4;
+    thangHienThi = m;
+}
+
+string AdminController::layTieuDeBXH(int vDay, int vMonth, int vYear, int vHour) const {
+    int startDays = -1, endDays = -1, tuan = 3, thang = 11;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    return "BẢNG XẾP HẠNG TUẦN " + to_string(tuan) + " THÁNG " + to_string(thang);
+}
+
+static void quickSortBXH(Vector<HangXepHang>& arr, int low, int high) {
+    if (low < high) {
+        HangXepHang pivot = arr[high];
+        int i = (low - 1);
+        for (int j = low; j <= high - 1; j++) {
+            bool swapNeeded = false;
+            if (arr[j].getTongDoanhThu() > pivot.getTongDoanhThu()) {
+                swapNeeded = true;
+            } 
+            else if (arr[j].getTongDoanhThu() == pivot.getTongDoanhThu()) {
+                if (arr[j].getMocDatCuoi() < pivot.getMocDatCuoi()) {
+                    swapNeeded = true;
+                }
+            }
+            
+            if (swapNeeded) {
+                i++;
+                HangXepHang temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+        HangXepHang temp = arr[i + 1];
+        arr[i + 1] = arr[high];
+        arr[high] = temp;
+        
+        int pi = i + 1;
+        
+        quickSortBXH(arr, low, pi - 1);
+        quickSortBXH(arr, pi + 1, high);
+    }
+}
+
+Vector<HangXepHang> AdminController::thongKeXepHangTuan(int vDay, int vMonth, int vYear, int vHour) {
+    Vector<HangXepHang> danhSach;
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return danhSach;
+
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+
+    for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
+        if (p->data->getRoleId() == 2 && p->data->getStatus() == 1) {
+            int uId = p->data->getId();
+            double tong = 0;
+            int mocCuoi = -1;
+
+            for (int i = 0; i < dsLog.size(); i++) {
+                if (dsLog[i].getUserId() == uId && dsLog[i].getThanhTien() > 0) {
+                    string tg = dsLog[i].getThoiGian();
+                    if (tg.length() >= 8) {
+                        try {
+                            int ly = stoi(tg.substr(0, 4));
+                            int lm = stoi(tg.substr(4, 2));
+                            int ld = stoi(tg.substr(6, 2));
+                            int logDays = tinhTongSoNgay(ld, lm, ly);
+                            if (logDays >= startDays && logDays <= endDays) {
+                                tong += dsLog[i].getThanhTien();
+                                mocCuoi = dsLog[i].getThuTuLog();
+                            }
+                        } catch (...) {}
+                    }
+                }
+            }
+
+            if (tong > 0) {
+                danhSach.push_back(HangXepHang(0, uId, p->data->getUsername(), tong, mocCuoi));
+            }
+        }
+    }
+
+    if (danhSach.size() > 1) {
+        quickSortBXH(danhSach, 0, danhSach.size() - 1);
+    }
+
+    for (int i = 0; i < danhSach.size(); i++) {
+        danhSach[i].setHang(i + 1);
+    }
+
+    return danhSach;
+}
+
+Vector<HangXepHang> AdminController::layTop5BXH(int vDay, int vMonth, int vYear, int vHour) {
+    Vector<HangXepHang> tatCa = thongKeXepHangTuan(vDay, vMonth, vYear, vHour);
+    Vector<HangXepHang> top5;
+    for (int i = 0; i < tatCa.size() && i < 5; i++) {
+        top5.push_back(tatCa[i]);
+    }
+    return top5;
+}
+
+int AdminController::layHangHienTaiCuaKhach(int userId, int vDay, int vMonth, int vYear, int vHour, double& doanhThuTuan) {
+    doanhThuTuan = 0;
+    Vector<HangXepHang> tatCa = thongKeXepHangTuan(vDay, vMonth, vYear, vHour);
+    for (int i = 0; i < tatCa.size(); i++) {
+        if (tatCa[i].getUserId() == userId) {
+            doanhThuTuan = tatCa[i].getTongDoanhThu();
+            return tatCa[i].getHang();
+        }
+    }
+    return -1;
+}
+
+string AdminController::dinhDangSDT(const string& phone, bool hienDayDu) const {
+    if (hienDayDu) return phone;
+    if (phone.length() >= 7) {
+        return phone.substr(0, 4) + "***" + phone.substr(phone.length() - 3);
+    }
+    return phone;
+}
+
+bool AdminController::daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const {
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return false;
+
+    int hieuLucTu = endDays;
+    int hieuLucDen = endDays + 7;
+
+    for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
+        Order* o = p->data;
+        if (o->getUserId() == userId && o->getVoucherUsed() == 1) {
+            string tg = o->getThoiGian();
+            if (tg.length() >= 18) {
+                try {
+                    string datePart = tg.substr(tg.length() - 10);
+                    int od = stoi(datePart.substr(0, 2));
+                    int om = stoi(datePart.substr(3, 2));
+                    int oy = stoi(datePart.substr(6, 4));
+                    int orderDays = tinhTongSoNgay(od, om, oy);
+                    if (orderDays >= hieuLucTu && orderDays <= hieuLucDen) {
+                        return true;
+                    }
+                } catch (...) {}
+            }
+        }
+    }
+    return false;
+}
+
+Voucher AdminController::layThongTinVoucherCuaKhach(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) {
+    int startDays = -1, endDays = -1, tuan = 0, thang = 0;
+    layKhoangTuanTongKet(vDay, vMonth, vYear, vHour, startDays, endDays, tuan, thang);
+    if (startDays == -1) return Voucher(userId, 0.1, -1, -1, true);
+
+    bool inTop5 = false;
+    Vector<HangXepHang> top5 = layTop5BXH(vDay, vMonth, vYear, vHour);
+    for (int i = 0; i < top5.size(); i++) {
+        if (top5[i].getUserId() == userId) {
+            inTop5 = true;
+            break;
+        }
+    }
+    if (!inTop5) return Voucher(userId, 0.1, -1, -1, true);
+
+    bool daDung = daDungVoucherTrongTuan(userId, ordersQueue, vDay, vMonth, vYear, vHour);
+    return Voucher(userId, 0.1, endDays, endDays + 7, daDung);
+}
+
+bool AdminController::coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) {
+    Voucher vc = layThongTinVoucherCuaKhach(userId, ordersQueue, vDay, vMonth, vYear, vHour);
+    int ngayHienTai = tinhTongSoNgay(vDay, vMonth, vYear);
+    return vc.conHieuLuc(ngayHienTai);
+}
+
+string AdminController::formatMocDoanhThu(string goc, int mode) const {
+    if (goc.empty()) return "";
+    try {
+        if (mode == 0 && goc.length() >= 8) { 
+            return goc.substr(6, 2) + "/" + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 1 && goc.length() >= 7) { 
+            return "Tuần " + goc.substr(6, 1) + " - " + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 2 && goc.length() >= 6) {
+            return "Tháng " + goc.substr(4, 2) + "/" + goc.substr(0, 4);
+        } else if (mode == 3 && goc.length() >= 4) { 
+            return "Năm " + goc.substr(0, 4);
+        }
+    } catch (...) {}
+    return goc;
+}
+
+Vector<PhieuDoanhThu> AdminController::layDanhSachMocDoanhThu(int mode) {
+    Vector<string> dsMoc;
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+    
+    for (int i = 0; i < dsLog.size(); i++) {
+        string tg = dsLog[i].getThoiGian();
+        if (tg.length() >= 8) {
+            string key = "";
+            if (mode == 0) key = tg.substr(0, 8);
+            else if (mode == 1) { 
+                int d = stoi(tg.substr(6, 2));
+                int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+                key = tg.substr(0, 6) + to_string(w);
+            }
+            else if (mode == 2) key = tg.substr(0, 6); 
+            else if (mode == 3) key = tg.substr(0, 4);
+
+            if (!dsMoc.contains(key)) dsMoc.push_back(key);
+        }
+    }
+    
+    for (int i = 0; i < dsMoc.size() - 1; i++) {
+        for (int j = i + 1; j < dsMoc.size(); j++) {
+            if (dsMoc[j] > dsMoc[i]) {
+                string tmp = dsMoc[i]; dsMoc[i] = dsMoc[j]; dsMoc[j] = tmp;
+            }
+        }
+    }
+
+    Vector<PhieuDoanhThu> kq;
+    for (int i = 0; i < dsMoc.size(); i++) {
+        kq.push_back(PhieuDoanhThu(dsMoc[i], formatMocDoanhThu(dsMoc[i], mode)));
+    }
+    
+    return kq;
+}
+
+DoanhThuTongHop AdminController::thongKeDoanhThuChiTiet(string mocGoc, int mode) {
+    DoanhThuTongHop kq;
+    kq.tongKet.tieuDeGoc = mocGoc;
+    kq.tongKet.tieuDeHienThi = formatMocDoanhThu(mocGoc, mode);
+    
+    Vector<GiaoDichDoanhThu> dsLog;
+    FileManager::loadDoanhThu("Data/DoanhThu.txt", dsLog);
+
+    for (int i = 0; i < dsLog.size(); i++) {
+        string tg = dsLog[i].getThoiGian();
+        if (tg.length() < 8) continue;
+
+        string keyLog = "";
+        if (mode == 0) keyLog = tg.substr(0, 8);
+        else if (mode == 1) {
+            int d = stoi(tg.substr(6, 2));
+            int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+            keyLog = tg.substr(0, 6) + to_string(w);
+        }
+        else if (mode == 2) keyLog = tg.substr(0, 6);
+        else if (mode == 3) keyLog = tg.substr(0, 4);
+
+        if (keyLog == mocGoc) { 
+            string loai = dsLog[i].getLoai();
+            double tien = dsLog[i].getThanhTien();
+            
+            if (loai == "NAP") kq.tongKet.tongNap += tien;
+            else if (loai == "BOK") kq.tongKet.tongBooking += tien;
+            else if (loai == "FNB") kq.tongKet.tongFnB += tien;
+
+            string childKey = "", childTitle = "";
+            if (mode == 0) {
+                childKey = tg + "_" + loai;
+                childTitle = tg.length() >= 13 ? (tg.substr(9, 2) + ":" + tg.substr(11, 2) + " - " + loai) : loai;
+            }
+            else if (mode == 1) { 
+                childKey = tg.substr(0, 8); childTitle = formatMocDoanhThu(childKey, 0);
+            }
+            else if (mode == 2) { 
+                int d = stoi(tg.substr(6, 2));
+                int w = (d <= 7) ? 1 : ((d <= 14) ? 2 : ((d <= 21) ? 3 : 4));
+                childKey = tg.substr(0, 6) + to_string(w); 
+                childTitle = formatMocDoanhThu(childKey, 1);
+            }
+            else if (mode == 3) { 
+                childKey = tg.substr(0, 6); 
+                childTitle = formatMocDoanhThu(childKey, 2);
+            }
+
+            int foundIdx = -1;
+            for (int j = 0; j < kq.chiTiet.size(); j++) {
+                if (kq.chiTiet[j].tieuDeGoc == childKey) { foundIdx = j; break; }
+            }
+            
+            if (foundIdx == -1) {
+                PhieuDoanhThu p(childKey, childTitle);
+                kq.chiTiet.push_back(p);
+                foundIdx = kq.chiTiet.size() - 1;
+            }
+            
+            if (loai == "NAP") kq.chiTiet[foundIdx].tongNap += tien;
+            else if (loai == "BOK") kq.chiTiet[foundIdx].tongBooking += tien;
+            else if (loai == "FNB") kq.chiTiet[foundIdx].tongFnB += tien;
+        }
+    }
+    
+    for (int i = 0; i < kq.chiTiet.size() - 1; i++) {
+        for (int j = i + 1; j < kq.chiTiet.size(); j++) {
+            if (kq.chiTiet[j].tieuDeGoc > kq.chiTiet[i].tieuDeGoc) {
+                PhieuDoanhThu tmp = kq.chiTiet[i]; kq.chiTiet[i] = kq.chiTiet[j]; kq.chiTiet[j] = tmp;
+            }
+        }
+    }
+    return kq;
 }

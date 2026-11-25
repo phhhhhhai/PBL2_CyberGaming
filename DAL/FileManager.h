@@ -8,8 +8,10 @@
 #include "../Entities/Order.h"
 #include "../Entities/DatLich.h"
 #include "../Entities/MayTram.h"
+#include "../Entities/Voucher.h"
 #include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Queue.h"
+#include "../BLL/Vector.h"
 #include <string>
 
 using namespace std;
@@ -30,6 +32,9 @@ public:
 
     static void loadBookings(const string& filename, DoublyLinkedList<DatLich*>& dsDatLich);
     static void saveBookings(const string& filename, DoublyLinkedList<DatLich*>& dsDatLich);
+
+    static void logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien);
+    static void loadDoanhThu(const string& filename, Vector<GiaoDichDoanhThu>& dsGiaoDich);
 };
 
 #endif

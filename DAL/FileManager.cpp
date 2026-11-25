@@ -63,23 +63,18 @@ void FileManager::loadGrid(const string& filename, MayTram* grid[ROWS][COLS], Do
 
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            int id, loaiMay, trangThai;
-            string user;
-            // Đọc dữ liệu từ MayTram.txt
-            file >> id >> loaiMay >> trangThai >> user;
+            int id, loaiMay, trangThai, userId; 
+
+            file >> id >> loaiMay >> trangThai >> userId;
             
-            // Cấp phát động đối tượng MayTram
             grid[i][j] = new MayTram(id, loaiMay, trangThai);
-            
-            // Map đối tượng Client thay vì chỉ lưu chuỗi string
-            if (user != "NONE") {
+
+            if (userId != 0) { 
                 for (Node<User*>* p = dsTaiKhoan.getHead(); p != nullptr; p = p->next) {
-                    if (p->data->getUsername() == user) {
+                    if (p->data->getId() == userId) { 
                         // Ép kiểu để lấy đúng đối tượng Client
                         Client* c = dynamic_cast<Client*>(p->data);
-                        if (c != nullptr) {
-                            grid[i][j]->assignClient(c);
-                        }
+                        if (c != nullptr) grid[i][j]->assignClient(c);
                         break;
                     }
                 }
@@ -98,11 +93,8 @@ void FileManager::saveGrid(const string& filename, MayTram* grid[ROWS][COLS]) {
                  << grid[i][j]->getTrangThai() << " ";
             
             Client* c = grid[i][j]->getCurrentClient();
-            if (c != nullptr) {
-                file << c->getUsername() << "\n";
-            } else {
-                file << "NONE\n";
-            }
+            if (c != nullptr) file << c->getId() << "\n";
+            else file << "0\n";
         }
     }
     file.close();
@@ -114,8 +106,17 @@ void FileManager::loadOrders(const string& filename, Queue<Order*>& ordersQueue)
     int id, mId, uId, idMon, sl, status, paid;
     string tg;
     while (file >> id >> mId >> uId >> idMon >> sl >> status >> paid) {
-        getline(file >> ws, tg); 
-        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid, tg));
+        getline(file >> ws, tg);
+        while (!tg.empty() && (tg.back() == '\r' || tg.back() == '\n' || tg.back() == ' ')) {
+            tg.pop_back();
+        }
+        int vc = 0;
+        string tag = " #V10";
+        if (tg.length() >= tag.length() && tg.substr(tg.length() - tag.length()) == tag) {
+            vc = 1;
+            tg = tg.substr(0, tg.length() - tag.length());
+        }
+        ordersQueue.enqueue(new Order(id, mId, uId, idMon, sl, status, paid, tg, vc));
     }
     file.close();
 }
@@ -124,9 +125,11 @@ void FileManager::saveOrders(const string& filename, Queue<Order*>& ordersQueue)
     ofstream file(filename);
     for (Node<Order*>* p = ordersQueue.getFront(); p != nullptr; p = p->next) {
         Order* o = p->data;
+        string tg = o->getThoiGian().empty() ? "Unknown" : o->getThoiGian();
+        if (o->getVoucherUsed() == 1) tg += " #V10";
         file << o->getId() << " " << o->getMachineId() << " " << o->getUserId() << " "
              << o->getIdMon() << " " << o->getSoLuong() << " " << o->getStatus() << " " 
-             << o->getPaid() << " " << (o->getThoiGian().empty() ? "Unknown" : o->getThoiGian()) << "\n";
+             << o->getPaid() << " " << tg << "\n";
     }
     file.close();
 }
@@ -138,10 +141,10 @@ void FileManager::loadBookings(const string& filename, DoublyLinkedList<DatLich*
     while (getline(file, line)) {
         if (line.empty()) continue;
         stringstream ss(line);
-        int id, mId, g, p, tl, tt;
-        string sdt, ngay;
-        if (ss >> id >> sdt >> mId >> ngay >> g >> p >> tl >> tt) {
-            dsDatLich.addTail(new DatLich(id, sdt, mId, ngay, g, p, tl, tt));
+        int id, uId, mId, g, p, tl, tt; 
+        string ngay;
+        if (ss >> id >> uId >> mId >> ngay >> g >> p >> tl >> tt) {
+            dsDatLich.addTail(new DatLich(id, uId, mId, ngay, g, p, tl, tt));
         }
     }
     file.close();
@@ -151,9 +154,33 @@ void FileManager::saveBookings(const string& filename, DoublyLinkedList<DatLich*
     ofstream file(filename);
     for (Node<DatLich*>* p = dsDatLich.getHead(); p != nullptr; p = p->next) {
         DatLich* b = p->data;
-        file << b->getId() << " " << b->getSdtKhach() << " " << b->getIdMay() << " "
+        file << b->getId() << " " << b->getUserId() << " " << b->getIdMay() << " "
              << b->getNgayDat() << " " << b->getGioBatDau() << " " << b->getPhutBatDau() << " "
              << b->getThoiLuong() << " " << b->getTrangThai() << "\n";
+    }
+    file.close();
+}
+
+void FileManager::logDoanhThu(string thoiGian, string loai, int userId, string chiTiet, int soLuong, double thanhTien) {
+    ofstream file("Data/DoanhThu.txt", ios::app); 
+    if (file.is_open()) {
+        for (int i = 0; i < thoiGian.length(); i++) if (thoiGian[i] == ' ' || thoiGian[i] == '/') thoiGian[i] = '_';
+        for (int i = 0; i < chiTiet.length(); i++) if (chiTiet[i] == ' ') chiTiet[i] = '_';
+        
+        file << thoiGian << " " << loai << " " << userId << " " << chiTiet << " " << soLuong << " " << (long long)thanhTien << "\n";
+        file.close();
+    }
+}
+
+void FileManager::loadDoanhThu(const string& filename, Vector<GiaoDichDoanhThu>& dsGiaoDich) {
+    ifstream file(filename);
+    if (!file.is_open()) return;
+    string tg, loai, chiTiet;
+    int uId, sl;
+    double tt;
+    int idx = 0;
+    while (file >> tg >> loai >> uId >> chiTiet >> sl >> tt) {
+        dsGiaoDich.push_back(GiaoDichDoanhThu(tg, loai, uId, chiTiet, sl, tt, idx++));
     }
     file.close();
 }

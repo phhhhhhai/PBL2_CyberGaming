@@ -7,11 +7,42 @@
 #include "../Entities/MonAn.h"
 #include "../Entities/MayTram.h"
 #include "../Entities/DatLich.h"
-#include "DoublyLinkedList.h"
-#include <string>
+#include "../Entities/Order.h"
+#include "../Entities/Voucher.h"
+#include "../BLL/DoublyLinkedList.h"
 #include "../BLL/Vector.h"
+#include "../BLL/Queue.h"
+#include "../BLL/Pricing.h"
+#include <string>
 
 using namespace std;
+
+class PhieuDoanhThu {
+public:
+    string tieuDeGoc;
+    string tieuDeHienThi; 
+    double tongNap;
+    double tongBooking;
+    double tongFnB;
+
+    PhieuDoanhThu(string goc = "", string hienThi = "") 
+        : tieuDeGoc(goc), tieuDeHienThi(hienThi), tongNap(0), tongBooking(0), tongFnB(0) {}
+    double getTongDoanhThu() const { return tongNap + tongBooking + tongFnB; }
+};
+
+class DoanhThuTongHop {
+public:
+    PhieuDoanhThu tongKet;
+    Vector<PhieuDoanhThu> chiTiet;
+};
+
+class HoaDonDTO {
+public:
+    int userId; string thoiGian; int machineId; double thanhTien; double giamGia; double tongTien; int trangThai; int thanhToan; int coVoucher;
+    HoaDonDTO() : userId(0), thoiGian(""), machineId(0), thanhTien(0), giamGia(0), tongTien(0), trangThai(0), thanhToan(0), coVoucher(0) {}
+    HoaDonDTO(int u, string tg, int m, double ttGoc, double gg, double t, int tt, int p, int vc = 0) 
+        : userId(u), thoiGian(tg), machineId(m), thanhTien(ttGoc), giamGia(gg), tongTien(t), trangThai(tt), thanhToan(p), coVoucher(vc) {}
+};
 
 class AdminController {
 private:
@@ -22,17 +53,20 @@ private:
     User* findUserByPhone(const string& phone);
     Client* findClientByPhone(const string& phone);
     MayTram* findMachineById(int id);
-    MayTram* findMachineByUsername(const string& username);
 public:
     AdminController(DoublyLinkedList<User*>& users, DoublyLinkedList<DatLich*>& bookings, DoublyLinkedList<MonAn*>& foods, MayTram* g[ROWS][COLS]);
+    
+    Client* findClientById(int id);    
+    MayTram* findMachineByUsername(const string& username);
 
     bool isValidPhoneNumber(string phone);
     bool isDuplicateUser(string phone);
     
-    int addTaiKhoan(string phone, string pass, double initialBalance);
-    bool napTien(string username, double amount);
+    int addTaiKhoan(string phone, string pass, double initialBalance, string thoiGianLog = "");
+    bool napTien(string username, double amount, string thoiGianLog = "");
     bool updatePassword(string username, string newPass);
-    bool deleteTaiKhoan(string username);
+    bool deleteTaiKhoan(string username, Queue<Order*>& ordersQueue);
+    int restoreTaiKhoan(string username, string oldPass);
     bool deleteBooking(int bookingId);
 
     int assignSeat(string username, int idMay);
@@ -45,10 +79,34 @@ public:
     bool deleteMonAn(int idXoa);
 
     int validateAndSaveBooking(string phone, string idMayStr, string date, string hStr, string mStr, string durationStr, string pass, 
-        int currentTotalDays, int selectedBookingId);
+        int currentTotalDays, int selectedBookingId, string thoiGianLog = "");
 
     Vector<string> updateBookingLogics(int vDay, int vMonth, int vYear, int vHour, int vMinute);
     Vector<string> addVirtualMinutes(int mins, int& vDay, int& vMonth, int& vYear, int& vHour, int& vMinute, bool isHappyHourActive);
+
+    void thanhToanBill(Queue<Order*>& q, DoublyLinkedList<MonAn*>& dsMon, int userId, string thoiGianBill, string thoiGianLog);
+    void giaoHangBill(Queue<Order*>& q, int userId, string thoiGian);
+    int deleteBill(Queue<Order*>& q, int userId, string thoiGian);
+
+    int updateOrderQuantity(Queue<Order*>& q, int orderId, int newQty);
+    int deleteOrder(Queue<Order*>& q, int orderId);
+
+    Vector<HoaDonDTO> getDanhSachHoaDon(Queue<Order*>& ordersQueue);
+
+    int tinhTongSoNgay(int d, int m, int y) const;
+    void layKhoangTuanTongKet(int vDay, int vMonth, int vYear, int vHour, int& startDays, int& endDays, int& tuanTrongThang, int& thangHienThi) const;
+    string layTieuDeBXH(int vDay, int vMonth, int vYear, int vHour) const;
+    Vector<HangXepHang> thongKeXepHangTuan(int vDay, int vMonth, int vYear, int vHour);
+    Vector<HangXepHang> layTop5BXH(int vDay, int vMonth, int vYear, int vHour);
+    int layHangHienTaiCuaKhach(int userId, int vDay, int vMonth, int vYear, int vHour, double& doanhThuTuan);
+    string dinhDangSDT(const string& phone, bool hienDayDu) const;
+    Voucher layThongTinVoucherCuaKhach(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
+    bool daDungVoucherTrongTuan(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour) const;
+    bool coTheDungVoucher(int userId, Queue<Order*>& ordersQueue, int vDay, int vMonth, int vYear, int vHour);
+
+    string formatMocDoanhThu(string goc, int mode) const;
+    Vector<PhieuDoanhThu> layDanhSachMocDoanhThu(int mode);
+    DoanhThuTongHop thongKeDoanhThuChiTiet(string mocGoc, int mode);
 };
 
 #endif

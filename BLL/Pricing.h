@@ -31,4 +31,28 @@ public:
     }
 };
 
+class GiaHoaDon {
+public:
+    virtual double tinhGiamGia(double thanhTienGoc) const = 0;
+    virtual double tinhTongCong(double thanhTienGoc) const {
+        return thanhTienGoc - tinhGiamGia(thanhTienGoc);
+    }
+    virtual ~GiaHoaDon() {}
+};
+
+class GiaHoaDonGoc : public GiaHoaDon {
+public:
+    double tinhGiamGia(double thanhTienGoc) const override {
+        (void)thanhTienGoc;
+        return 0.0;
+    }
+};
+
+class GiaHoaDonVoucher10 : public GiaHoaDon {
+public:
+    double tinhGiamGia(double thanhTienGoc) const override {
+        return thanhTienGoc * 0.1;
+    }
+};
+
 #endif

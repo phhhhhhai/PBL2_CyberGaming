@@ -7,20 +7,20 @@ using namespace std;
 class DatLich {
 private:
     int id;
-    string sdtKhach;
+    int userId; 
     int idMay;
     string ngayDat;
     int gioBatDau;
     int phutBatDau;
     int thoiLuong;
-    int trangThai; // 0: Dang cho, 1: Da hoan thanh, 2: Da huy
+    int trangThai; 
 
 public:
-    DatLich(int i=0, string sdt="", int mId=0, string ngay="", int g=0, int p=0, int tl=0, int tt=0)
-        : id(i), sdtKhach(sdt), idMay(mId), ngayDat(ngay), gioBatDau(g), phutBatDau(p), thoiLuong(tl), trangThai(tt) {}
+    DatLich(int i=0, int uId=0, int mId=0, string ngay="", int g=0, int p=0, int tl=0, int tt=0)
+        : id(i), userId(uId), idMay(mId), ngayDat(ngay), gioBatDau(g), phutBatDau(p), thoiLuong(tl), trangThai(tt) {}
 
     int getId() const { return id; }
-    string getSdtKhach() const { return sdtKhach; }
+    int getUserId() const { return userId; } 
     int getIdMay() const { return idMay; }
     string getNgayDat() const { return ngayDat; }
     int getGioBatDau() const { return gioBatDau; }
@@ -29,6 +29,7 @@ public:
     int getTrangThai() const { return trangThai; }
 
     void setTrangThai(int tt) { trangThai = tt; }
+    void setUserId(int uId) { userId = uId; } 
     void updateLich(int mId, string ngay, int g, int p, int tl) {
         idMay = mId; ngayDat = ngay; gioBatDau = g; phutBatDau = p; thoiLuong = tl;
     }

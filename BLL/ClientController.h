@@ -4,7 +4,10 @@
 #include "../Entities/User.h"
 #include "../Entities/Client.h"
 #include "../Entities/MayTram.h"
+#include "../Entities/CartItem.h"  
+#include "../Entities/Order.h"
 #include "DoublyLinkedList.h"
+#include "Queue.h"
 #include "Pricing.h"
 #include <string>
 
@@ -26,6 +29,7 @@ public:
     bool changePassword(string username, string newPass);
     bool processTick(string username, double deductionAmount);
     void returnMachine(string username); 
+    int validateLogin(string username, string password, int currentHour, User*& loggedInUser);
+    int datMon(string username, DoublyLinkedList<CartItem*>& cart, Queue<Order*>& ordersQueue, string thoiGian, bool useVoucher = false);
 };
-
 #endif
